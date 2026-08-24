@@ -12,18 +12,15 @@
 
 ## 测试用例
 
-| 编号 | 用例 | 维度 | 优先级 |
-|------|------|------|--------|
-| 1 | [TSK-IN-001](../testcases/oracle/010-inspect.md) | 健康巡检 | P0 |
-| 2 | [TSK-SW-001](../testcases/oracle/001-switchover-validate.md) | 切换前置校验 | P0 |
-| 3 | [TSK-BK-001](../testcases/oracle/004-backup-full.md) | 全量备份 | P0 |
-| 4 | [TSK-EX-001](../testcases/oracle/005-ddl-execute.md) | DDL/DML 执行 | P0 |
-| 5 | [TSK-MN-001](../testcases/oracle/011-monitor-realtime.md) | 实时监控 | P1 |
-| 6 | [TSK-DQ-001](../testcases/oracle/006-diagnose-slow-query.md) | 慢查询诊断 | P1 |
-| 7 | [TSK-CM-003](../testcases/common/003-unreachable-db.md) | 不可达数据库 | P1 |
+| 编号 | 用例 | 维度 | 优先级 | 说明 |
+|------|------|------|--------|------|
+| 1 | [TSK-IN-001](../testcases/oracle/010-inspect/CASES.md) | 功能 | P0 | 完整巡检执行 |
+| 2 | [TSK-DQ-001](../testcases/oracle/006-diagnose-slow-query/CASES.md) | 功能 | P0 | 慢查询正常诊断 |
+| 3 | [TSK-DP-001](../testcases/oracle/007-diagnose-perf/CASES.md) | 功能 | P0 | 整体性能诊断 |
+| 4 | [TSK-CM-001](../testcases/common/CASES.md) | 边界 | P0 | 非法参数处理 |
+| 5 | [TSK-CM-003](../testcases/common/CASES.md) | 可靠性 | P0 | 数据库不可达 |
 
 ## 通过标准
 
 - 所有 P0 用例必须通过
-- P1 用例最多允许 1 个因环境原因 skip
-- 总通过率 >= 80%
+- 总通过率 >= 90%
