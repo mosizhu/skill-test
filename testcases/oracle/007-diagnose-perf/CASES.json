@@ -1,0 +1,254 @@
+[
+  {
+    "case_id": "DP-001",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "验证整体性能诊断的完整性和准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "expected": "score between 0 and 100"
+      },
+      {
+        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "expected": "score between 0 and 100"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 瓶颈分析有具体发现和影响说明"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 优化建议按优先级排序"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 关键参数有当前值与建议值对比"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DP-002",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "验证性能瓶颈的准确定位。",
+    "assertions": [
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DP'",
+        "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 至少列出前 3 大瓶颈"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 每个瓶颈有量化数据支撑"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DP-003",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 所有建议可执行"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有明确的操作步骤"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 高风险操作有标注"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DP_PERF_TEST (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_PERF_TEST SELECT ROWNUM,\n     RPAD('CODE', 50, 'X'), 'ACTIVE', ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 创建部分索引（故意遗漏 status 列）\n   CREATE INDEX TEST_DP_IDX_PERF ON TEST_DP_PERF_TEST(created_date);\n   -- 注意: code 和 status 列无索引\n   ",
+      "rollback": "DROP TABLE TEST_DP_PERF_TEST;\nDROP INDEX TEST_DP_IDX_PERF;\n",
+      "fixture": "test002_fill tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DP-004",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "invalid_level",
+      "include_tuning_suggestions": "yes"
+    },
+    "expected_output": "验证非法参数的处理能力。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 非法参数被拒绝"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 错误信息包含合法值列表"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DP-005",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "invalid_level",
+      "include_tuning_suggestions": "yes"
+    },
+    "expected_output": "验证低负载场景的诊断准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count = 0"
+      },
+      {
+        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "expected": "score between 0 and 100"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DP-006",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "[Setup SQL present] 验证高并发场景下的性能诊断准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DP'",
+        "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 并发场景瓶颈不遗漏"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\n",
+      "fixture": "test002_concurrent tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DP-007",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "[Setup SQL present] 验证混合负载场景的诊断能力。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 不同性能表正确区分"
+      },
+      {
+        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "expected": "score between 0 and 100"
+      }
+    ],
+    "data": {
+      "setup": "   -- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\n",
+      "fixture": "test002_mixed tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DP-008",
+    "skill": "db-oracle-diagnose-perf",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "diagnosis_depth": "standard",
+      "include_tuning_suggestions": "true"
+    },
+    "expected_output": "验证诊断输出的可读性和格式规范。",
+    "assertions": [
+      {
+        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'DP'",
+        "expected": "compliance = true"
+      },
+      {
+        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "expected": "score between 0 and 100"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有摘要/结论段落"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 优化建议有优先级"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  }
+]

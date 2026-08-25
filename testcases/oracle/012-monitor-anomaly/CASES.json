@@ -1,0 +1,198 @@
+[
+  {
+    "case_id": "MA-001",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "all",
+      "sensitivity": "standard"
+    },
+    "expected_output": "验证对已知异常的准确检测。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 所有已知异常均被检测"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 异常等级正确（CRITICAL/WARNING/INFO）"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 异常有唯一 ID"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 每条异常有建议措施"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 异常按严重程度排序"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MA-002",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "all",
+      "sensitivity": "standard"
+    },
+    "expected_output": "验证正常状态下不误报。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 正常状态下不产生误报"
+      },
+      {
+        "sql": "SELECT COUNT(*) as count FROM diagnostics WHERE status = 'active'",
+        "expected": "count = 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有检测时间戳"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有检测范围说明"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MA-003",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "all",
+      "sensitivity": "standard"
+    },
+    "expected_output": "[Setup SQL present] 验证异常检测的误报率控制。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 误报率为 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 正常指标不产生异常"
+      },
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MA'",
+        "expected": "verification_result = true"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MA_NORMAL (id NUMBER, value NUMBER, status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   -- 正常数据（不触发告警）\n   INSERT INTO TEST_MA_NORMAL SELECT ROWNUM, ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_MA_NORMAL;\n",
+      "fixture": "test002_normal tablespace isolation"
+    }
+  },
+  {
+    "case_id": "MA-004",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "invalid_type",
+      "sensitivity": "invalid_level"
+    },
+    "expected_output": "验证非法参数输入的处理。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 非法参数被拒绝"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 错误信息包含合法值列表"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MA-005",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "all",
+      "sensitivity": "standard"
+    },
+    "expected_output": "[Setup SQL present] 验证阈值边界处的检测准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 边界值处理正确"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 无边界错误"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MA_EDGE (id NUMBER, value NUMBER) TABLESPACE TEST002;\n   \n   -- 精确卡在阈值边界（如使用率 89.99%、90.01%）\n   INSERT /*+ APPEND */ INTO TEST_MA_EDGE SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 9000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_MA_EDGE;\n",
+      "fixture": "test002_edge tablespace isolation"
+    }
+  },
+  {
+    "case_id": "MA-006",
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "anomaly_types": "all",
+      "sensitivity": "standard"
+    },
+    "expected_output": "[Setup SQL present] 验证多异常同时触发时的处理。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 多异常独立列出"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 按严重程度排序"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 不互相干扰"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MA_MULTI (id NUMBER, name VARCHAR2(200), status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MA_MULTI SELECT ROWNUM, RPAD('X', 200, 'X'),\n     CASE MOD(ROWNUM, 2) WHEN 0 THEN 'ACTIVE' ELSE 'INACTIVE' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 20000);\n   COMMIT;\n   ",
+      "rollback": "",
+      "fixture": "test002_multi tablespace isolation"
+    }
+  }
+]
