@@ -49,7 +49,7 @@
     "expected_output": "[Setup SQL present] 验证采集数据的准确性，与直接查询结果对比。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MR'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_MR002 WHERE test_id = 'MR'",
         "expected": "verification_result = true"
       },
       {
@@ -62,8 +62,8 @@
       }
     ],
     "data": {
-      "setup": "SELECT COUNT(*) as total,\n          SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) as active,\n          SUM(CASE WHEN status='INACTIVE' THEN 1 ELSE 0 END) as inactive\n   FROM v$session;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "SELECT COUNT(*) as total,\n          SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) as active,\n          SUM(CASE WHEN status='INACTIVE' THEN 1 ELSE 0 END) as inactive\n   FROM v$session;\nCREATE TABLE ACCURACY_CHECKS_MR002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR002 VALUES ('MR', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_MR002;",
       "fixture": ""
     }
   },
@@ -83,7 +83,7 @@
     "expected_output": "[Setup SQL present] 验证告警阈值的正确触发。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "sql": "SELECT COUNT(*) as alert_count FROM ALERTS_MR003 WHERE severity IN ('WARNING','CRITICAL')",
         "expected": "alert_count > 0"
       },
       {
@@ -96,8 +96,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   -- 填充数据触发表空间告警\n   INSERT /*+ APPEND */ INTO TEST_MR_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 5000);\n   COMMIT;\n   \n   -- 触发会话数告警: 创建 50 个会话\nCREATE TABLE alerts (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO alerts VALUES ('WARNING', 'test_alert');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_LOAD;\nDROP TABLE alerts;",
+      "setup": "CREATE TABLE TEST_MR_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   -- 填充数据触发表空间告警\n   INSERT /*+ APPEND */ INTO TEST_MR_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 5000);\n   COMMIT;\n   \n   -- 触发会话数告警: 创建 50 个会话\nCREATE TABLE ALERTS_MR003 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR003 VALUES ('WARNING', 'test_alert');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_MR_LOAD;\nDROP TABLE ALERTS_MR003;",
       "fixture": "test002_fill tablespace isolation"
     }
   },
@@ -177,7 +177,7 @@
     "expected_output": "[Setup SQL present] 验证高阈值覆盖场景的监控准确性。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_MR006 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -190,8 +190,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_HIGH_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MR_HIGH_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_HIGH_LOAD;\nDROP TABLE report_sections;",
+      "setup": "CREATE TABLE TEST_MR_HIGH_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MR_HIGH_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_MR006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_MR006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_MR_HIGH_LOAD;\nDROP TABLE REPORT_SECTIONS_MR006;",
       "fixture": "test002_load tablespace isolation"
     }
   },
@@ -211,7 +211,7 @@
     "expected_output": "[Setup SQL present] 验证多指标同时告警时的处理能力。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "sql": "SELECT COUNT(*) as alert_count FROM ALERTS_MR007 WHERE severity IN ('WARNING','CRITICAL')",
         "expected": "alert_count > 0"
       },
       {
@@ -224,8 +224,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_MULTI (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_MR_MULTI SELECT ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE alerts (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO alerts VALUES ('WARNING', 'test_alert');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_MULTI;\nDROP TABLE alerts;",
+      "setup": "CREATE TABLE TEST_MR_MULTI (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_MR_MULTI SELECT ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ALERTS_MR007 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR007 VALUES ('WARNING', 'test_alert');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_MR_MULTI;\nDROP TABLE ALERTS_MR007;",
       "fixture": "test002_multi tablespace isolation"
     }
   },
@@ -245,7 +245,7 @@
     "expected_output": "验证快照时间精度。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MR'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_MR008 WHERE test_id = 'MR'",
         "expected": "verification_result = true"
       },
       {
@@ -258,8 +258,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_MR008 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR008 VALUES ('MR', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_MR008;",
       "fixture": ""
     }
   },
@@ -279,7 +279,7 @@
     "expected_output": "验证监控输出的可读性和格式规范。",
     "assertions": [
       {
-        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'MR'",
+        "sql": "SELECT format_compliance FROM OUTPUT_CHECKS_MR009 WHERE test_id = 'MR'",
         "expected": "compliance = true"
       },
       {
@@ -292,8 +292,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE output_checks (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO output_checks VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE output_checks;",
+      "setup": "CREATE TABLE OUTPUT_CHECKS_MR009 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_MR009 VALUES ('MR', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_MR009;",
       "fixture": ""
     }
   }
