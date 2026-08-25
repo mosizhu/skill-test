@@ -17,7 +17,7 @@
     "expected_output": "[Setup SQL present] 验证执行计划分析的完整性和准确性。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_PT_001 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -46,8 +46,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_PLAN (\n     id NUMBER,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_PT_IDX_PLAN ON TEST_PT_PLAN(created_date);\n   -- 注意: name 和 status 列无索引，用于测试问题识别\n   \n   INSERT INTO TEST_PT_PLAN SELECT ROWNUM,\n     RPAD('NAME', 100, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_PT_PLAN;\nDROP INDEX TEST_PT_IDX_PLAN;\nDROP TABLE report_sections;",
+      "setup": "CREATE TABLE TEST_PT_PLAN (\n     id NUMBER,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_PT_IDX_PLAN ON TEST_PT_PLAN(created_date);\n   -- 注意: name 和 status 列无索引，用于测试问题识别\n   \n   INSERT INTO TEST_PT_PLAN SELECT ROWNUM,\n     RPAD('NAME', 100, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_PT_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PT_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_PT_PLAN;\nDROP INDEX TEST_PT_IDX_PLAN;\nDROP TABLE REPORT_SECTIONS_PT_001;",
       "fixture": "test002_plan tablespace isolation"
     }
   },
@@ -117,7 +117,7 @@
         "expected": "pass_criteria_met: 预估改善合理"
       },
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'PT'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_PT_003 WHERE test_id = 'PT'",
         "expected": "verification_result = true"
       },
       {
@@ -134,8 +134,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_IMPACT (\n     id NUMBER,\n     name VARCHAR2(100),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_IMPACT SELECT ROWNUM, RPAD('NAME', 100, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('PT', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_PT_IMPACT;\nDROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE TEST_PT_IMPACT (\n     id NUMBER,\n     name VARCHAR2(100),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_IMPACT SELECT ROWNUM, RPAD('NAME', 100, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_PT_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_003 VALUES ('PT', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_PT_IMPACT;\nDROP TABLE ACCURACY_CHECKS_PT_003;",
       "fixture": "test002_plan tablespace isolation"
     }
   },
@@ -201,7 +201,7 @@
     "expected_output": "验证 SQL 不存在时的处理。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'PT'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_PT_005 WHERE test_id = 'PT'",
         "expected": "verification_result = true"
       },
       {
@@ -218,8 +218,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('PT', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PT_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_005 VALUES ('PT', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PT_005;",
       "fixture": ""
     }
   },

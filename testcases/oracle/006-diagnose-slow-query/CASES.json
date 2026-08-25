@@ -15,7 +15,7 @@
     "expected_output": "[Setup SQL present] 验证对已知慢查询的诊断完整性和准确性。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_DQ_001 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -44,8 +44,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DQ_SLOW_QUERY (\n     id NUMBER,\n     name VARCHAR2(200),\n     data CLOB,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 填充数据（约 10 万行，产生明显执行时间）\n   INSERT /*+ APPEND */ INTO TEST_DQ_SLOW_QUERY\n   SELECT ROWNUM,\n          RPAD('NAME', 200, 'X'),\n          RPAD('DATA', 4000, 'Y'),\n          SYSDATE - ROWNUM/1000\n   FROM (SELECT /*+ MATERIALIZE */ ROWNUM FROM dual CONNECT BY LEVEL <= 100)\n   CROSS JOIN (SELECT /*+ MATERIALIZE */ ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_DQ_IDX_SLOW ON TEST_DQ_SLOW_QUERY(created_date);\n   -- 注意: name 列无索引，用于测试全表扫描检测\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DQ_SLOW_QUERY;\nDROP INDEX TEST_DQ_IDX_SLOW;\nDROP TABLE report_sections;",
+      "setup": "CREATE TABLE TEST_DQ_SLOW_QUERY (\n     id NUMBER,\n     name VARCHAR2(200),\n     data CLOB,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 填充数据（约 10 万行，产生明显执行时间）\n   INSERT /*+ APPEND */ INTO TEST_DQ_SLOW_QUERY\n   SELECT ROWNUM,\n          RPAD('NAME', 200, 'X'),\n          RPAD('DATA', 4000, 'Y'),\n          SYSDATE - ROWNUM/1000\n   FROM (SELECT /*+ MATERIALIZE */ ROWNUM FROM dual CONNECT BY LEVEL <= 100)\n   CROSS JOIN (SELECT /*+ MATERIALIZE */ ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_DQ_IDX_SLOW ON TEST_DQ_SLOW_QUERY(created_date);\n   -- 注意: name 列无索引，用于测试全表扫描检测\nCREATE TABLE REPORT_SECTIONS_DQ_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_DQ_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DQ_SLOW_QUERY;\nDROP INDEX TEST_DQ_IDX_SLOW;\nDROP TABLE REPORT_SECTIONS_DQ_001;",
       "fixture": "test002_fill tablespace isolation"
     }
   },
@@ -65,7 +65,7 @@
     "expected_output": "[Setup SQL present] 验证诊断数据准确性，与 AWR 或 v$sql 实际数据对比。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DQ'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DQ_002 WHERE test_id = 'DQ'",
         "expected": "verification_result = true"
       },
       {
@@ -82,8 +82,8 @@
       }
     ],
     "data": {
-      "setup": "SELECT sql_id, sql_text, executions, elapsed_time/1000000 as elapsed_sec,\n          cpu_time/1000000 as cpu_sec, buffer_gets\n   FROM v$sql\n   WHERE sql_text NOT LIKE '%v$sql%'\n     AND sql_text NOT LIKE '%sql_text%'\n   ORDER BY elapsed_time DESC\n   FETCH FIRST 5 ROWS ONLY;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DQ', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "SELECT sql_id, sql_text, executions, elapsed_time/1000000 as elapsed_sec,\n          cpu_time/1000000 as cpu_sec, buffer_gets\n   FROM v$sql\n   WHERE sql_text NOT LIKE '%v$sql%'\n     AND sql_text NOT LIKE '%sql_text%'\n   ORDER BY elapsed_time DESC\n   FETCH FIRST 5 ROWS ONLY;\nCREATE TABLE ACCURACY_CHECKS_DQ_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DQ_002 VALUES ('DQ', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DQ_002;",
       "fixture": ""
     }
   },
@@ -187,7 +187,7 @@
     "expected_output": "验证对不存在 SQL 的处理（SQL ID 无效或查询已完成）。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DQ'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DQ_005 WHERE test_id = 'DQ'",
         "expected": "verification_result = true"
       },
       {
@@ -208,8 +208,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DQ', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DQ_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DQ_005 VALUES ('DQ', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DQ_005;",
       "fixture": ""
     }
   },
@@ -233,7 +233,7 @@
         "expected": "pass_criteria_met: 超长 SQL 正常处理"
       },
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_DQ_006 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -250,8 +250,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DQ_LONG_SQL (\n     col1 NUMBER, col2 NUMBER, col3 NUMBER, col4 NUMBER, col5 NUMBER\n   ) TABLESPACE TEST002;\n   \n   -- 重复 1000 次 INSERT（超过 4000 字符限制）\n   INSERT INTO TEST_DQ_LONG_SQL SELECT ROWNUM, ROWNUM+1, ROWNUM+2, ROWNUM+3, ROWNUM+4 FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100) t1, (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100) t2;\n   COMMIT;\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DQ_LONG_SQL;\nDROP TABLE report_sections;",
+      "setup": "CREATE TABLE TEST_DQ_LONG_SQL (\n     col1 NUMBER, col2 NUMBER, col3 NUMBER, col4 NUMBER, col5 NUMBER\n   ) TABLESPACE TEST002;\n   \n   -- 重复 1000 次 INSERT（超过 4000 字符限制）\n   INSERT INTO TEST_DQ_LONG_SQL SELECT ROWNUM, ROWNUM+1, ROWNUM+2, ROWNUM+3, ROWNUM+4 FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100) t1, (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100) t2;\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_DQ_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_DQ_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DQ_LONG_SQL;\nDROP TABLE REPORT_SECTIONS_DQ_006;",
       "fixture": "test002_long tablespace isolation"
     }
   },

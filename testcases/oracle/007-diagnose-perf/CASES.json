@@ -16,11 +16,11 @@
     "expected_output": "验证整体性能诊断的完整性和准确性。",
     "assertions": [
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_DP_001 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_DP_001 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
@@ -45,8 +45,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE perf_scores;",
+      "setup": "CREATE TABLE PERF_SCORES_DP_001 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_001 VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE PERF_SCORES_DP_001;",
       "fixture": ""
     }
   },
@@ -67,7 +67,7 @@
     "expected_output": "验证性能瓶颈的准确定位。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DP'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DP_002 WHERE test_id = 'DP'",
         "expected": "verification_result = true"
       },
       {
@@ -88,8 +88,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DP', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DP_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_002 VALUES ('DP', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DP_002;",
       "fixture": ""
     }
   },
@@ -192,11 +192,11 @@
     "expected_output": "验证低负载场景的诊断准确性。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "sql": "SELECT COUNT(*) as alert_count FROM ALERTS_DP_005 WHERE severity IN ('WARNING','CRITICAL')",
         "expected": "alert_count = 0"
       },
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_DP_005 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
@@ -209,8 +209,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE alerts (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nCOMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE alerts;\nDROP TABLE perf_scores;",
+      "setup": "CREATE TABLE ALERTS_DP_005 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_005 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_005 VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE ALERTS_DP_005;\nDROP TABLE PERF_SCORES_DP_005;",
       "fixture": ""
     }
   },
@@ -231,7 +231,7 @@
     "expected_output": "[Setup SQL present] 验证高并发场景下的性能诊断准确性。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DP'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DP_006 WHERE test_id = 'DP'",
         "expected": "verification_result = true"
       },
       {
@@ -248,8 +248,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DP', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\nDROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_DP_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_006 VALUES ('DP', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\nDROP TABLE ACCURACY_CHECKS_DP_006;",
       "fixture": "test002_concurrent tablespace isolation"
     }
   },
@@ -274,7 +274,7 @@
         "expected": "pass_criteria_met: 不同性能表正确区分"
       },
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_DP_007 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
@@ -287,8 +287,8 @@
       }
     ],
     "data": {
-      "setup": "-- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\nDROP TABLE perf_scores;",
+      "setup": "-- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE PERF_SCORES_DP_007 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_007 VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\nDROP TABLE PERF_SCORES_DP_007;",
       "fixture": "test002_mixed tablespace isolation"
     }
   },
@@ -309,11 +309,11 @@
     "expected_output": "验证诊断输出的可读性和格式规范。",
     "assertions": [
       {
-        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'DP'",
+        "sql": "SELECT format_compliance FROM OUTPUT_CHECKS_DP_008 WHERE test_id = 'DP'",
         "expected": "compliance = true"
       },
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_DP_008 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
@@ -334,8 +334,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE output_checks (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO output_checks VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE output_checks;\nDROP TABLE perf_scores;",
+      "setup": "CREATE TABLE OUTPUT_CHECKS_DP_008 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_DP_008 VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_008 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_008 VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_DP_008;\nDROP TABLE PERF_SCORES_DP_008;",
       "fixture": ""
     }
   }

@@ -21,7 +21,7 @@
         "expected": "pass_criteria_met: 所有五个维度均有输出"
       },
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_IN_001 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -33,7 +33,7 @@
         "expected": "pass_criteria_met: 等待事件至少列出 TOP 5"
       },
       {
-        "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
+        "sql": "SELECT score FROM PERF_SCORES_IN_001 WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
       },
       {
@@ -50,8 +50,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE report_sections;\nDROP TABLE perf_scores;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_IN_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_IN_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE PERF_SCORES_IN_001 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_IN_001 VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_IN_001;\nDROP TABLE PERF_SCORES_IN_001;",
       "fixture": ""
     }
   },
@@ -77,7 +77,7 @@
         "expected": "pass_criteria_met: 所有数值指标与直接查询误差 <= 0.01%"
       },
       {
-        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'IN'",
+        "sql": "SELECT format_compliance FROM OUTPUT_CHECKS_IN_002 WHERE test_id = 'IN'",
         "expected": "compliance = true"
       },
       {
@@ -90,8 +90,8 @@
       }
     ],
     "data": {
-      "setup": "SELECT df.tablespace_name,\n          ROUND((1 - df.free_mb/tf.total_mb)*100, 2) as usage_pct\n   FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 as free_mb FROM dba_free_space GROUP BY tablespace_name) df,\n        (SELECT tablespace_name, SUM(bytes)/1024/1024 as total_mb FROM dba_data_files GROUP BY tablespace_name) tf\n   WHERE df.tablespace_name = tf.tablespace_name;\nCREATE TABLE output_checks (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO output_checks VALUES ('IN', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE output_checks;",
+      "setup": "SELECT df.tablespace_name,\n          ROUND((1 - df.free_mb/tf.total_mb)*100, 2) as usage_pct\n   FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 as free_mb FROM dba_free_space GROUP BY tablespace_name) df,\n        (SELECT tablespace_name, SUM(bytes)/1024/1024 as total_mb FROM dba_data_files GROUP BY tablespace_name) tf\n   WHERE df.tablespace_name = tf.tablespace_name;\nCREATE TABLE OUTPUT_CHECKS_IN_002 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_IN_002 VALUES ('IN', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_IN_002;",
       "fixture": ""
     }
   },
@@ -369,7 +369,7 @@
         "expected": "pass_criteria_met: 缺失数据有明确标注"
       },
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_IN_009 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -382,8 +382,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE report_sections;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_IN_009 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_IN_009 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_IN_009;",
       "fixture": ""
     }
   },
@@ -405,7 +405,7 @@
     "expected_output": "验证巡检输出的可读性和格式规范。",
     "assertions": [
       {
-        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'IN'",
+        "sql": "SELECT format_compliance FROM OUTPUT_CHECKS_IN_010 WHERE test_id = 'IN'",
         "expected": "compliance = true"
       },
       {
@@ -430,8 +430,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE output_checks (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO output_checks VALUES ('IN', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE output_checks;",
+      "setup": "CREATE TABLE OUTPUT_CHECKS_IN_010 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_IN_010 VALUES ('IN', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_IN_010;",
       "fixture": ""
     }
   }

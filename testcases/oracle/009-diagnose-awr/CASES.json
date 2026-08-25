@@ -15,7 +15,7 @@
     "expected_output": "验证 AWR 报告解析的完整性和准确性。",
     "assertions": [
       {
-        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_DA_001 WHERE status = 'complete'",
         "expected": "section_count >= 5"
       },
       {
@@ -44,8 +44,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE report_sections;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_DA_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_DA_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_DA_001;",
       "fixture": ""
     }
   },
@@ -73,7 +73,7 @@
         "expected": "pass_criteria_met: 波峰/波谷有明确时间点"
       },
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DA'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DA_002 WHERE test_id = 'DA'",
         "expected": "verification_result = true"
       },
       {
@@ -86,8 +86,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_002 VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_002;",
       "fixture": ""
     }
   },
@@ -149,7 +149,7 @@
     "expected_output": "验证 AWR 数据缺失时的处理。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DA'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DA_004 WHERE test_id = 'DA'",
         "expected": "verification_result = true"
       },
       {
@@ -166,8 +166,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_004 VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_004;",
       "fixture": ""
     }
   },
@@ -225,7 +225,7 @@
     "expected_output": "验证双快照对比分析的准确性。",
     "assertions": [
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DA'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DA_006 WHERE test_id = 'DA'",
         "expected": "verification_result = true"
       },
       {
@@ -242,8 +242,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_006 VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_006;",
       "fixture": ""
     }
   },

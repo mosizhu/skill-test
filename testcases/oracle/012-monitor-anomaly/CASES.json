@@ -73,7 +73,7 @@
         "expected": "pass_criteria_met: 正常状态下不产生误报"
       },
       {
-        "sql": "SELECT COUNT(*) as count FROM diagnostics WHERE status = 'active'",
+        "sql": "SELECT COUNT(*) as count FROM DIAGNOSTICS_MA_002 WHERE status = 'active'",
         "expected": "count = 0"
       },
       {
@@ -94,8 +94,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE diagnostics (status VARCHAR2(20)) TABLESPACE TEST002;\nCOMMIT;",
-      "rollback": "DROP TABLE diagnostics;",
+      "setup": "CREATE TABLE DIAGNOSTICS_MA_002 (status VARCHAR2(20)) TABLESPACE TEST002;\nCOMMIT;",
+      "rollback": "DROP TABLE DIAGNOSTICS_MA_002;",
       "fixture": ""
     }
   },
@@ -125,7 +125,7 @@
         "expected": "pass_criteria_met: 正常指标不产生异常"
       },
       {
-        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MA'",
+        "sql": "SELECT verification_result FROM ACCURACY_CHECKS_MA_003 WHERE test_id = 'MA'",
         "expected": "verification_result = true"
       },
       {
@@ -138,8 +138,8 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MA_NORMAL (id NUMBER, value NUMBER, status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   -- 正常数据（不触发告警）\n   INSERT INTO TEST_MA_NORMAL SELECT ROWNUM, ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('MA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MA_NORMAL;\nDROP TABLE accuracy_checks;",
+      "setup": "CREATE TABLE TEST_MA_NORMAL (id NUMBER, value NUMBER, status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   -- 正常数据（不触发告警）\n   INSERT INTO TEST_MA_NORMAL SELECT ROWNUM, ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_MA_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MA_003 VALUES ('MA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_MA_NORMAL;\nDROP TABLE ACCURACY_CHECKS_MA_003;",
       "fixture": "test002_normal tablespace isolation"
     }
   },
