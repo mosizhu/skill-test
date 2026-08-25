@@ -263,7 +263,7 @@
     ],
     "data": {
       "setup": "CREATE TABLE TEST_MA_MULTI (id NUMBER, name VARCHAR2(200), status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MA_MULTI SELECT ROWNUM, RPAD('X', 200, 'X'),\n     CASE MOD(ROWNUM, 2) WHEN 0 THEN 'ACTIVE' ELSE 'INACTIVE' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 20000);\n   COMMIT;",
-      "rollback": "",
+      "rollback": "DROP TABLE TEST_MA_MULTI;",
       "fixture": "test002_multi tablespace isolation"
     }
   }

@@ -373,7 +373,7 @@
     ],
     "data": {
       "setup": "CREATE TABLE TEST_DQ_CONCURRENT (id NUMBER, status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DQ_CONCURRENT SELECT ROWNUM, 'ACTIVE', ROWNUM FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\n   \n   -- 创建部分索引\n   CREATE INDEX TEST_DQ_IDX_CONC ON TEST_DQ_CONCURRENT(status);",
-      "rollback": "",
+      "rollback": "DROP TABLE TEST_DQ_CONCURRENT;\nDROP INDEX TEST_DQ_IDX_CONC;",
       "fixture": "test002_concurrent tablespace isolation"
     }
   }
