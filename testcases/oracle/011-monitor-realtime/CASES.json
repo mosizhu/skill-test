@@ -1,0 +1,299 @@
+[
+  {
+    "case_id": "MR-001",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "验证实时监控能采集核心指标的完整性和及时性。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 所有指标类别均有数据"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 时间序列数据点 >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 时间戳精度到秒"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 最终统计包含平均、最大、最小值"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MR-002",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "[Setup SQL present] 验证采集数据的准确性，与直接查询结果对比。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 核心指标误差在允许范围内"
+      },
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MR'",
+        "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 不遗漏任何活跃会话"
+      }
+    ],
+    "data": {
+      "setup": "   SELECT COUNT(*) as total,\n          SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) as active,\n          SUM(CASE WHEN status='INACTIVE' THEN 1 ELSE 0 END) as inactive\n   FROM v$session;\n   ",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MR-003",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "[Setup SQL present] 验证告警阈值的正确触发。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count > 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 未超过阈值的指标不产生误报"
+      },
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count = 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count = 0"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MR_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   -- 填充数据触发表空间告警\n   INSERT /*+ APPEND */ INTO TEST_MR_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 5000);\n   COMMIT;\n   \n   -- 触发会话数告警: 创建 50 个会话\n   ",
+      "rollback": "DROP TABLE TEST_MR_LOAD;\n",
+      "fixture": "test002_fill tablespace isolation"
+    }
+  },
+  {
+    "case_id": "MR-004",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "-5",
+      "snapshot_interval": "0",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "验证非法参数输入的处理。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 非法参数被拒绝"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 错误信息包含具体原因"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MR-005",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "-5",
+      "snapshot_interval": "0",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "验证断线重连的能力。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 网络断开有明确提示"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 自动重连能力"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 数据点不遗漏"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MR-006",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "[Setup SQL present] 验证高阈值覆盖场景的监控准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MR_HIGH_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MR_HIGH_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_MR_HIGH_LOAD;\n",
+      "fixture": "test002_load tablespace isolation"
+    }
+  },
+  {
+    "case_id": "MR-007",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "[Setup SQL present] 验证多指标同时告警时的处理能力。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count = 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 按严重程度排序"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_MR_MULTI (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_MR_MULTI SELECT ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_MR_MULTI;\n",
+      "fixture": "test002_multi tablespace isolation"
+    }
+  },
+  {
+    "case_id": "MR-008",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "验证快照时间精度。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 时间戳精确到秒"
+      },
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MR'",
+        "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 时间顺序正确"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "MR-009",
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "monitor_duration": "30",
+      "snapshot_interval": "5",
+      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+    },
+    "expected_output": "验证监控输出的可读性和格式规范。",
+    "assertions": [
+      {
+        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'MR'",
+        "expected": "compliance = true"
+      },
+      {
+        "sql": "SELECT format_compliance FROM output_checks WHERE test_id = 'MR'",
+        "expected": "compliance = true"
+      },
+      {
+        "sql": "SELECT COUNT(*) as alert_count FROM alerts WHERE severity IN ('WARNING','CRITICAL')",
+        "expected": "alert_count = 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有总结段落"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  }
+]

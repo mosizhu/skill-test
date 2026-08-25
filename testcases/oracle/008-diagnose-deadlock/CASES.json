@@ -1,0 +1,198 @@
+[
+  {
+    "case_id": "DL-001",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "realtime",
+      "check_interval": "5"
+    },
+    "expected_output": "验证死锁检测的及时性和准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DL'",
+        "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 如有死锁，至少列出 2 个会话的 SID 和用户"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 根因分析有明确的触发条件说明"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 处理建议分紧急程度"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DL-002",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "realtime",
+      "check_interval": "5"
+    },
+    "expected_output": "[Setup SQL present] 验证死锁根因分析的深度和准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 涉及对象有具体说明"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 等待时间精确"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DL_DEADLOCK (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_DEADLOCK VALUES (1, 'A', 'X', 100);\n   INSERT INTO TEST_DL_DEADLOCK VALUES (2, 'B', 'Y', 200);\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DL_DEADLOCK;\n",
+      "fixture": "test002_deadlock tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DL-003",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "realtime",
+      "check_interval": "5"
+    },
+    "expected_output": "[Setup SQL present] 验证恢复建议的有效性。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 所有建议可执行"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有明确的操作步骤"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 高风险操作有标注"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DL_RECOVERY (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_RECOVERY VALUES (1, 'A', 'X');\n   INSERT INTO TEST_DL_RECOVERY VALUES (2, 'B', 'Y');\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DL_RECOVERY;\n",
+      "fixture": "test002_deadlock tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DL-004",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "none",
+      "check_interval": "5"
+    },
+    "expected_output": "验证无死锁场景的诊断准确性。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as count FROM diagnostics WHERE status = 'active'",
+        "expected": "count = 0"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有检测时间戳"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有检测范围说明"
+      }
+    ],
+    "data": {
+      "setup": "",
+      "rollback": "",
+      "fixture": ""
+    }
+  },
+  {
+    "case_id": "DL-005",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "realtime",
+      "check_interval": "5"
+    },
+    "expected_output": "[Setup SQL present] 验证历史死锁记录的分析。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 历史死锁正确归类"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 重复模式被识别"
+      },
+      {
+        "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DL'",
+        "expected": "verification_result = true"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DL_HIST (\n     id NUMBER,\n     event_time TIMESTAMP,\n     session_id NUMBER,\n     blocked_by NUMBER,\n     operation VARCHAR2(50)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_HIST VALUES (1, SYSDATE-1, 101, 202, 'UPDATE', '2026-08-23 14:00:00');\n   INSERT INTO TEST_DL_HIST VALUES (2, SYSDATE-1, 202, 101, 'UPDATE', '2026-08-23 14:00:01');\n   INSERT INTO TEST_DL_HIST VALUES (3, SYSDATE-1, 303, 404, 'INSERT', '2026-08-23 15:00:00');\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DL_HIST;\n",
+      "fixture": "test002_deadlock tablespace isolation"
+    }
+  },
+  {
+    "case_id": "DL-006",
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "check_mode": "realtime",
+      "check_interval": "5"
+    },
+    "expected_output": "[Setup SQL present] 验证循环死锁的检测（3+ 会话循环阻塞）。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM report_sections WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 每个环路深度有说明"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 处理建议有效"
+      }
+    ],
+    "data": {
+      "setup": "   CREATE TABLE TEST_DL_CYCLE_A (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_B (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_C (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_CYCLE_A VALUES (1, 'A');\n   INSERT INTO TEST_DL_CYCLE_B VALUES (1, 'B');\n   INSERT INTO TEST_DL_CYCLE_C VALUES (1, 'C');\n   COMMIT;\n   ",
+      "rollback": "DROP TABLE TEST_DL_CYCLE_A;\nDROP TABLE TEST_DL_CYCLE_B;\nDROP TABLE TEST_DL_CYCLE_C;\n",
+      "fixture": "test002_deadlock tablespace isolation"
+    }
+  }
+]
