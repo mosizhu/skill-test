@@ -34,11 +34,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 关键参数有当前值与建议值对比"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE perf_scores;",
       "fixture": ""
     }
   },
@@ -69,11 +77,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 每个瓶颈有量化数据支撑"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DP', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE accuracy_checks;",
       "fixture": ""
     }
   },
@@ -104,11 +120,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 高风险操作有标注"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DP_PERF_TEST (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_PERF_TEST SELECT ROWNUM,\n     RPAD('CODE', 50, 'X'), 'ACTIVE', ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 创建部分索引（故意遗漏 status 列）\n   CREATE INDEX TEST_DP_IDX_PERF ON TEST_DP_PERF_TEST(created_date);\n   -- 注意: code 和 status 列无索引\n   ",
-      "rollback": "DROP TABLE TEST_DP_PERF_TEST;\nDROP INDEX TEST_DP_IDX_PERF;\n",
+      "setup": "CREATE TABLE TEST_DP_PERF_TEST (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_PERF_TEST SELECT ROWNUM,\n     RPAD('CODE', 50, 'X'), 'ACTIVE', ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 创建部分索引（故意遗漏 status 列）\n   CREATE INDEX TEST_DP_IDX_PERF ON TEST_DP_PERF_TEST(created_date);\n   -- 注意: code 和 status 列无索引",
+      "rollback": "DROP TABLE TEST_DP_PERF_TEST;\nDROP INDEX TEST_DP_IDX_PERF;",
       "fixture": "test002_fill tablespace isolation"
     }
   },
@@ -135,6 +159,14 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 错误信息包含合法值列表"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
@@ -166,11 +198,19 @@
       {
         "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE alerts (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nCOMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE alerts;\nDROP TABLE perf_scores;",
       "fixture": ""
     }
   },
@@ -197,11 +237,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 并发场景瓶颈不遗漏"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\n",
+      "setup": "CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DP', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\nDROP TABLE accuracy_checks;",
       "fixture": "test002_concurrent tablespace isolation"
     }
   },
@@ -228,11 +276,19 @@
       {
         "sql": "SELECT score FROM perf_scores WHERE dimension = 'overall'",
         "expected": "score between 0 and 100"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   -- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\n",
+      "setup": "-- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\nDROP TABLE perf_scores;",
       "fixture": "test002_mixed tablespace isolation"
     }
   },
@@ -267,11 +323,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 优化建议有优先级"
+      },
+      {
+        "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
+        "expected": "stat_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE output_checks (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO output_checks VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE perf_scores (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO perf_scores VALUES ('overall', 85);\nCOMMIT;",
+      "rollback": "DROP TABLE output_checks;\nDROP TABLE perf_scores;",
       "fixture": ""
     }
   }

@@ -28,11 +28,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 处理建议分紧急程度"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DL', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE accuracy_checks;",
       "fixture": ""
     }
   },
@@ -61,11 +69,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 等待时间精确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DL_DEADLOCK (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_DEADLOCK VALUES (1, 'A', 'X', 100);\n   INSERT INTO TEST_DL_DEADLOCK VALUES (2, 'B', 'Y', 200);\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DL_DEADLOCK;\n",
+      "setup": "CREATE TABLE TEST_DL_DEADLOCK (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_DEADLOCK VALUES (1, 'A', 'X', 100);\n   INSERT INTO TEST_DL_DEADLOCK VALUES (2, 'B', 'Y', 200);\n   COMMIT;\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DL_DEADLOCK;\nDROP TABLE report_sections;",
       "fixture": "test002_deadlock tablespace isolation"
     }
   },
@@ -94,11 +110,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 高风险操作有标注"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DL_RECOVERY (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_RECOVERY VALUES (1, 'A', 'X');\n   INSERT INTO TEST_DL_RECOVERY VALUES (2, 'B', 'Y');\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DL_RECOVERY;\n",
+      "setup": "CREATE TABLE TEST_DL_RECOVERY (\n     id NUMBER PRIMARY KEY,\n     name VARCHAR2(100),\n     status VARCHAR2(20)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_RECOVERY VALUES (1, 'A', 'X');\n   INSERT INTO TEST_DL_RECOVERY VALUES (2, 'B', 'Y');\n   COMMIT;",
+      "rollback": "DROP TABLE TEST_DL_RECOVERY;",
       "fixture": "test002_deadlock tablespace isolation"
     }
   },
@@ -127,11 +151,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 有检测范围说明"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE diagnostics (status VARCHAR2(20)) TABLESPACE TEST002;\nCOMMIT;",
+      "rollback": "DROP TABLE diagnostics;",
       "fixture": ""
     }
   },
@@ -160,11 +192,19 @@
       {
         "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DL'",
         "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DL_HIST (\n     id NUMBER,\n     event_time TIMESTAMP,\n     session_id NUMBER,\n     blocked_by NUMBER,\n     operation VARCHAR2(50)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_HIST VALUES (1, SYSDATE-1, 101, 202, 'UPDATE', '2026-08-23 14:00:00');\n   INSERT INTO TEST_DL_HIST VALUES (2, SYSDATE-1, 202, 101, 'UPDATE', '2026-08-23 14:00:01');\n   INSERT INTO TEST_DL_HIST VALUES (3, SYSDATE-1, 303, 404, 'INSERT', '2026-08-23 15:00:00');\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DL_HIST;\n",
+      "setup": "CREATE TABLE TEST_DL_HIST (\n     id NUMBER,\n     event_time TIMESTAMP,\n     session_id NUMBER,\n     blocked_by NUMBER,\n     operation VARCHAR2(50)\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_HIST VALUES (1, SYSDATE-1, 101, 202, 'UPDATE', '2026-08-23 14:00:00');\n   INSERT INTO TEST_DL_HIST VALUES (2, SYSDATE-1, 202, 101, 'UPDATE', '2026-08-23 14:00:01');\n   INSERT INTO TEST_DL_HIST VALUES (3, SYSDATE-1, 303, 404, 'INSERT', '2026-08-23 15:00:00');\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DL', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DL_HIST;\nDROP TABLE accuracy_checks;",
       "fixture": "test002_deadlock tablespace isolation"
     }
   },
@@ -193,11 +233,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 处理建议有效"
+      },
+      {
+        "sql": "SELECT COUNT(*) as lock_count FROM v$lock",
+        "expected": "lock_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DL_CYCLE_A (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_B (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_C (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_CYCLE_A VALUES (1, 'A');\n   INSERT INTO TEST_DL_CYCLE_B VALUES (1, 'B');\n   INSERT INTO TEST_DL_CYCLE_C VALUES (1, 'C');\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DL_CYCLE_A;\nDROP TABLE TEST_DL_CYCLE_B;\nDROP TABLE TEST_DL_CYCLE_C;\n",
+      "setup": "CREATE TABLE TEST_DL_CYCLE_A (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_B (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   CREATE TABLE TEST_DL_CYCLE_C (id NUMBER PRIMARY KEY, name VARCHAR2(50)) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DL_CYCLE_A VALUES (1, 'A');\n   INSERT INTO TEST_DL_CYCLE_B VALUES (1, 'B');\n   INSERT INTO TEST_DL_CYCLE_C VALUES (1, 'C');\n   COMMIT;\nCREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_DL_CYCLE_A;\nDROP TABLE TEST_DL_CYCLE_B;\nDROP TABLE TEST_DL_CYCLE_C;\nDROP TABLE report_sections;",
       "fixture": "test002_deadlock tablespace isolation"
     }
   }

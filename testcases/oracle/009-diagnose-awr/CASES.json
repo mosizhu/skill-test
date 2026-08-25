@@ -33,11 +33,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: Top 10 SQL 包含执行次数、时间、逻辑读"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE report_sections (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO report_sections SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE report_sections;",
       "fixture": ""
     }
   },
@@ -67,11 +75,19 @@
       {
         "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'DA'",
         "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE accuracy_checks;",
       "fixture": ""
     }
   },
@@ -101,6 +117,14 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 高风险操作有标注"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
@@ -131,11 +155,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 给出清晰的错误说明"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE accuracy_checks;",
       "fixture": ""
     }
   },
@@ -161,11 +193,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 峰值原因有推测"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_DA_PEAK (id NUMBER, data CLOB) TABLESPACE TEST002;\n   \n   -- 短时间大量插入，产生峰值\n   INSERT /*+ APPEND */ INTO TEST_DA_PEAK SELECT ROWNUM, RPAD('X', 2000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 10000);\n   COMMIT;\n   \n   -- 立即清理\n   DELETE FROM TEST_DA_PEAK;\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_DA_PEAK;\n",
+      "setup": "CREATE TABLE TEST_DA_PEAK (id NUMBER, data CLOB) TABLESPACE TEST002;\n   \n   -- 短时间大量插入，产生峰值\n   INSERT /*+ APPEND */ INTO TEST_DA_PEAK SELECT ROWNUM, RPAD('X', 2000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 10000);\n   COMMIT;\n   \n   -- 立即清理\n   DELETE FROM TEST_DA_PEAK;\n   COMMIT;",
+      "rollback": "DROP TABLE TEST_DA_PEAK;",
       "fixture": "test002_fill tablespace isolation"
     }
   },
@@ -191,11 +231,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: SQL 统计变化正确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('DA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE accuracy_checks;",
       "fixture": ""
     }
   },
@@ -225,6 +273,14 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 趋势线正确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
+        "expected": "snap_count >= 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {

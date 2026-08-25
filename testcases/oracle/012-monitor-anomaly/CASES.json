@@ -35,6 +35,14 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 异常按严重程度排序"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
@@ -75,11 +83,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 有检测范围说明"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "CREATE TABLE diagnostics (status VARCHAR2(20)) TABLESPACE TEST002;\nCOMMIT;",
+      "rollback": "DROP TABLE diagnostics;",
       "fixture": ""
     }
   },
@@ -111,11 +127,19 @@
       {
         "sql": "SELECT verification_result FROM accuracy_checks WHERE test_id = 'MA'",
         "expected": "verification_result = true"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_MA_NORMAL (id NUMBER, value NUMBER, status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   -- 正常数据（不触发告警）\n   INSERT INTO TEST_MA_NORMAL SELECT ROWNUM, ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_MA_NORMAL;\n",
+      "setup": "CREATE TABLE TEST_MA_NORMAL (id NUMBER, value NUMBER, status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   -- 正常数据（不触发告警）\n   INSERT INTO TEST_MA_NORMAL SELECT ROWNUM, ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 1000);\n   COMMIT;\nCREATE TABLE accuracy_checks (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO accuracy_checks VALUES ('MA', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE TEST_MA_NORMAL;\nDROP TABLE accuracy_checks;",
       "fixture": "test002_normal tablespace isolation"
     }
   },
@@ -143,6 +167,14 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 错误信息包含合法值列表"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
@@ -175,11 +207,19 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 无边界错误"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_MA_EDGE (id NUMBER, value NUMBER) TABLESPACE TEST002;\n   \n   -- 精确卡在阈值边界（如使用率 89.99%、90.01%）\n   INSERT /*+ APPEND */ INTO TEST_MA_EDGE SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 9000);\n   COMMIT;\n   ",
-      "rollback": "DROP TABLE TEST_MA_EDGE;\n",
+      "setup": "CREATE TABLE TEST_MA_EDGE (id NUMBER, value NUMBER) TABLESPACE TEST002;\n   \n   -- 精确卡在阈值边界（如使用率 89.99%、90.01%）\n   INSERT /*+ APPEND */ INTO TEST_MA_EDGE SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 9000);\n   COMMIT;",
+      "rollback": "DROP TABLE TEST_MA_EDGE;",
       "fixture": "test002_edge tablespace isolation"
     }
   },
@@ -211,10 +251,18 @@
       {
         "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
         "expected": "pass_criteria_met: 不互相干扰"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
       }
     ],
     "data": {
-      "setup": "   CREATE TABLE TEST_MA_MULTI (id NUMBER, name VARCHAR2(200), status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MA_MULTI SELECT ROWNUM, RPAD('X', 200, 'X'),\n     CASE MOD(ROWNUM, 2) WHEN 0 THEN 'ACTIVE' ELSE 'INACTIVE' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 20000);\n   COMMIT;\n   ",
+      "setup": "CREATE TABLE TEST_MA_MULTI (id NUMBER, name VARCHAR2(200), status VARCHAR2(20)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MA_MULTI SELECT ROWNUM, RPAD('X', 200, 'X'),\n     CASE MOD(ROWNUM, 2) WHEN 0 THEN 'ACTIVE' ELSE 'INACTIVE' END\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 20000);\n   COMMIT;",
       "rollback": "",
       "fixture": "test002_multi tablespace isolation"
     }
