@@ -7,8 +7,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "[Setup SQL present] 验证执行计划分析的完整性和准确性。",
     "assertions": [
@@ -47,8 +51,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
     "assertions": [
@@ -79,8 +87,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "[Setup SQL present] 验证影响评估的准确性。",
     "assertions": [
@@ -111,8 +123,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "验证非法 SQL 输入的处理。",
     "assertions": [
@@ -143,8 +159,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "验证 SQL 不存在时的处理。",
     "assertions": [
@@ -171,8 +191,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "验证 SQL 注入防护。",
     "assertions": [
@@ -203,8 +227,12 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "action": "analyze",
-      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'"
+      "sql_id": "",
+      "sql_text": "SELECT * FROM TEST_<PREFIX> WHERE status = 'ACTIVE' AND name LIKE '%X%'",
+      "tune_scope": "full",
+      "include_sql_profile": false,
+      "include_sql_rewrite": true,
+      "include_index_advice": true
     },
     "expected_output": "[Setup SQL present] 验证复杂嵌套查询的诊断准确性。",
     "assertions": [

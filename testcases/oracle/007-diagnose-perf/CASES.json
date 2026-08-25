@@ -7,8 +7,11 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证整体性能诊断的完整性和准确性。",
     "assertions": [
@@ -47,8 +50,11 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证性能瓶颈的准确定位。",
     "assertions": [
@@ -79,8 +85,11 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
     "assertions": [
@@ -111,8 +120,11 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "invalid_level",
-      "include_tuning_suggestions": "yes"
+      "diagnose_scope": "invalid",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证非法参数的处理能力。",
     "assertions": [
@@ -139,8 +151,11 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "invalid_level",
-      "include_tuning_suggestions": "yes"
+      "diagnose_scope": "invalid",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证低负载场景的诊断准确性。",
     "assertions": [
@@ -167,8 +182,11 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证高并发场景下的性能诊断准确性。",
     "assertions": [
@@ -195,8 +213,11 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证混合负载场景的诊断能力。",
     "assertions": [
@@ -223,8 +244,11 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "diagnosis_depth": "standard",
-      "include_tuning_suggestions": "true"
+      "diagnose_scope": "all",
+      "top_n": 10,
+      "time_range_hours": 24,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证诊断输出的可读性和格式规范。",
     "assertions": [

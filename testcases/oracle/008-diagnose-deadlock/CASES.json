@@ -7,8 +7,9 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "realtime",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "all"
     },
     "expected_output": "验证死锁检测的及时性和准确性。",
     "assertions": [
@@ -43,8 +44,9 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "realtime",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "all"
     },
     "expected_output": "[Setup SQL present] 验证死锁根因分析的深度和准确性。",
     "assertions": [
@@ -75,8 +77,9 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "realtime",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "all"
     },
     "expected_output": "[Setup SQL present] 验证恢复建议的有效性。",
     "assertions": [
@@ -107,8 +110,9 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "none",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "invalid"
     },
     "expected_output": "验证无死锁场景的诊断准确性。",
     "assertions": [
@@ -139,8 +143,9 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "realtime",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "all"
     },
     "expected_output": "[Setup SQL present] 验证历史死锁记录的分析。",
     "assertions": [
@@ -171,8 +176,9 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "check_mode": "realtime",
-      "check_interval": "5"
+      "trace_file_path": "",
+      "time_range_hours": 24,
+      "deadlock_type": "all"
     },
     "expected_output": "[Setup SQL present] 验证循环死锁的检测（3+ 会话循环阻塞）。",
     "assertions": [

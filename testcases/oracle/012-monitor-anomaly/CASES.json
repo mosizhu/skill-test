@@ -7,8 +7,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "all",
-      "sensitivity": "standard"
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证对已知异常的准确检测。",
     "assertions": [
@@ -47,8 +51,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "all",
-      "sensitivity": "standard"
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证正常状态下不误报。",
     "assertions": [
@@ -83,8 +91,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "all",
-      "sensitivity": "standard"
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证异常检测的误报率控制。",
     "assertions": [
@@ -115,8 +127,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "invalid_type",
-      "sensitivity": "invalid_level"
+      "anomaly_scope": "invalid",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "验证非法参数输入的处理。",
     "assertions": [
@@ -143,8 +159,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "all",
-      "sensitivity": "standard"
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证阈值边界处的检测准确性。",
     "assertions": [
@@ -171,8 +191,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "anomaly_types": "all",
-      "sensitivity": "standard"
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 0,
+      "snap_id_end": 0
     },
     "expected_output": "[Setup SQL present] 验证多异常同时触发时的处理。",
     "assertions": [

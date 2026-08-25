@@ -7,9 +7,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证对已知慢查询的诊断完整性和准确性。",
     "assertions": [
@@ -48,9 +49,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证诊断数据准确性，与 AWR 或 v$sql 实际数据对比。",
     "assertions": [
@@ -77,9 +79,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
     "assertions": [
@@ -110,9 +113,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "nonexistent-host-99999",
-      "sql_text": "INVALID_INPUT",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "验证非法 SQL 输入的处理能力。",
     "assertions": [
@@ -143,9 +147,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "nonexistent-host-99999",
-      "sql_text": "INVALID_INPUT",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "验证对不存在 SQL 的处理（SQL ID 无效或查询已完成）。",
     "assertions": [
@@ -176,9 +181,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证超长 SQL（> 4000 字符）的处理能力。",
     "assertions": [
@@ -209,9 +215,10 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证递归/嵌套查询的诊断准确性。",
     "assertions": [
@@ -242,9 +249,10 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证绑定变量查询的诊断准确性。",
     "assertions": [
@@ -271,9 +279,10 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "sql_text": "SELECT * FROM TEST_<PREFIX>_QUERY WHERE name LIKE '%X%'",
-      "execution_plan": "true",
-      "top_n_events": "5"
+      "sql_id": "",
+      "top_n": 5,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
     },
     "expected_output": "[Setup SQL present] 验证并发慢查询的诊断准确性。",
     "assertions": [

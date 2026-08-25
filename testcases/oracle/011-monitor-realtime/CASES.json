@@ -7,9 +7,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "验证实时监控能采集核心指标的完整性和及时性。",
     "assertions": [
@@ -44,9 +45,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "[Setup SQL present] 验证采集数据的准确性，与直接查询结果对比。",
     "assertions": [
@@ -77,9 +79,10 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "[Setup SQL present] 验证告警阈值的正确触发。",
     "assertions": [
@@ -114,9 +117,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "-5",
-      "snapshot_interval": "0",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": -5,
+      "time_range_hours": 1
     },
     "expected_output": "验证非法参数输入的处理。",
     "assertions": [
@@ -143,9 +147,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "-5",
-      "snapshot_interval": "0",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": -5,
+      "time_range_hours": 1
     },
     "expected_output": "验证断线重连的能力。",
     "assertions": [
@@ -176,9 +181,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "[Setup SQL present] 验证高阈值覆盖场景的监控准确性。",
     "assertions": [
@@ -205,9 +211,10 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "[Setup SQL present] 验证多指标同时告警时的处理能力。",
     "assertions": [
@@ -234,9 +241,10 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "验证快照时间精度。",
     "assertions": [
@@ -267,9 +275,10 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "monitor_duration": "30",
-      "snapshot_interval": "5",
-      "alert_thresholds": "{\"cpu_usage\": \"80\", \"session_count\": \"100\", \"tablespace_usage\": \"90\", \"waitevent_count\": \"10\"}"
+      "metric_type": "",
+      "top_n": 10,
+      "slow_threshold_sec": 5,
+      "time_range_hours": 1
     },
     "expected_output": "验证监控输出的可读性和格式规范。",
     "assertions": [

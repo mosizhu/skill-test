@@ -7,8 +7,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证健康巡检在正常环境下覆盖所有维度的完整执行。",
     "assertions": [
@@ -51,8 +55,12 @@
     "priority": "P0",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "[Setup SQL present] 验证巡检数值准确性和与数据库实际状态一致。",
     "assertions": [
@@ -79,8 +87,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "nonexistent-host-99999",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证非法参数输入时的拒绝行为。",
     "assertions": [
@@ -107,8 +119,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "nonexistent-host-99999",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证空查询结果的优雅处理。",
     "assertions": [
@@ -135,8 +151,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "nonexistent-host-99999",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证权限受限账户下的降级行为。",
     "assertions": [
@@ -163,8 +183,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "[Setup SQL present] 验证发现表空间接近满时的告警行为。",
     "assertions": [
@@ -195,8 +219,12 @@
     "priority": "P1",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证等待事件分析的准确性。",
     "assertions": [
@@ -227,8 +255,12 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "[Setup SQL present] 验证高并发场景下的会话统计准确性。",
     "assertions": [
@@ -255,8 +287,12 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证数据字典查询失败时的容错。",
     "assertions": [
@@ -287,8 +323,12 @@
     "priority": "P2",
     "params": {
       "instance_host": "oracle-rac_node01",
-      "dimensions": "all",
-      "include_history": "true"
+      "inspect_scope": "full",
+      "alert_log_days": 7,
+      "tablespace_alert_pct": 80,
+      "top_n": 10,
+      "include_asm": true,
+      "include_dg": true
     },
     "expected_output": "验证巡检输出的可读性和格式规范。",
     "assertions": [
