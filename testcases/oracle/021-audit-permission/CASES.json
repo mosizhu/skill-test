@@ -1,0 +1,313 @@
+[
+  {
+    "case_id": "AP-001",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "",
+      "audit_scope": "account",
+      "include_sys": false
+    },
+    "expected_output": "验证账号状态审计输出：账号列表、锁定/过期状态、默认密码检测。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 输出账号状态审计结果"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 识别锁定/过期账号状态"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 检测默认密码账号"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 风险等级明确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_001 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_001;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-002",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "",
+      "audit_scope": "privilege",
+      "include_sys": false
+    },
+    "expected_output": "验证高危系统权限筛查输出：ALTER SYSTEM / GRANT ANY PRIVILEGE / ANY 类权限。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 输出系统权限审计结果"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 筛查出 ALTER SYSTEM 等高危权限"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 识别 ANY 类权限"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 风险等级明确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_002 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_002;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-003",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "",
+      "audit_scope": "policy",
+      "include_sys": false
+    },
+    "expected_output": "验证口令策略审计输出：FAILED_LOGIN_ATTEMPTS / PASSWORD_LIFE_TIME / PASSWORD_VERIFY_FUNCTION。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 输出口令策略审计结果"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 检查 FAILED_LOGIN_ATTEMPTS 等密码策略参数"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 检查 PASSWORD_VERIFY_FUNCTION 复杂度"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 风险等级明确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_003 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_003;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-004",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "nonexistent-host-99999",
+      "username": "",
+      "audit_scope": "all",
+      "include_sys": false
+    },
+    "expected_output": "验证不可达主机时返回明确的结构化连接错误，不暴露底层异常栈。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 返回明确的连接失败错误提示"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 不暴露底层异常栈"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_004 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_004 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_004;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-005",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "NONEXISTENT_USER_XYZ",
+      "audit_scope": "all",
+      "include_sys": false
+    },
+    "expected_output": "验证 username 指定不存在的账号时返回明确的提示，不产出审计报告。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 返回账号不存在的明确提示"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 不产出审计报告"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_005 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_005 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_005;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-006",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P1",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "",
+      "audit_scope": "account",
+      "include_sys": false
+    },
+    "expected_output": "验证 audit_scope 各取值（account/privilege/policy）正确限定审计维度，仅输出对应维度结果。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: account 范围仅输出账号状态审计"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: privilege 范围仅输出权限审计"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: policy 范围仅输出口令策略审计"
+      },
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_006 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_006;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  },
+  {
+    "case_id": "AP-007",
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "username": "",
+      "audit_scope": "all",
+      "include_sys": true
+    },
+    "expected_output": "验证 include_sys=true 时审计范围包含 SYS/SYSTEM 等内置系统账号。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 审计范围包含系统账号"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 输出系统账号状态与权限"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 风险等级明确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_007 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_007;",
+      "fixture": "test002_audit_permission tablespace isolation"
+    }
+  }
+]

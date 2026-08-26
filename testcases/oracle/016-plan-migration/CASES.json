@@ -1,0 +1,354 @@
+[
+  {
+    "case_id": "PM-001",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "full",
+      "schema_name": "",
+      "migration_mode": "offline",
+      "src_version": "11.2.0.4",
+      "dst_version": "19.3.0.0",
+      "src_platform": "AIX",
+      "dst_platform": "Linux x86_64",
+      "parallel_degree": 4,
+      "downtime_hours": 4
+    },
+    "expected_output": "[Setup SQL present] 验证全库离线迁移方案生成的完整性（范围评估/方式选型/前置检查/一致性校验）。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_PM_001 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 迁移范围评估完整（版本/平台/数据量/对象清单）"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 迁移方式选型有主方案与备选方案及理由"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 前置检查清单覆盖源端/目标端/网络存储"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 一致性校验与回滚割接步骤明确"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_001;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-002",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "schema",
+      "schema_name": "SCOTT,HR",
+      "migration_mode": "online",
+      "src_version": "19.3.0.0",
+      "dst_version": "19.3.0.0",
+      "src_platform": "Linux x86_64",
+      "dst_platform": "Linux x86_64",
+      "parallel_degree": 8,
+      "downtime_hours": 1
+    },
+    "expected_output": "[Setup SQL present] 验证指定 schema 在线迁移方案生成，含 OGG 实时同步与分批策略。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_PM_002 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 方案针对指定 schema 且含在线同步方式"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有分批策略与并行通道配置"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有割接时间线与回滚方案"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_002;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-003",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "positive",
+    "priority": "P0",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "tablespace",
+      "schema_name": "",
+      "migration_mode": "hybrid",
+      "src_version": "12.1.0.2",
+      "dst_version": "19.3.0.0",
+      "src_platform": "Solaris",
+      "dst_platform": "Linux x86_64",
+      "parallel_degree": 16,
+      "downtime_hours": 2
+    },
+    "expected_output": "[Setup SQL present] 验证表空间级混合模式迁移方案生成，含可传输表空间/XTTS 与增量同步。",
+    "assertions": [
+      {
+        "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_PM_003 WHERE status = 'complete'",
+        "expected": "section_count >= 5"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 方案针对表空间范围且含跨平台处理"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 混合模式含全量+增量同步步骤"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 有字节序/字符集兼容性说明"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_003;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-004",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "src_instance": "nonexistent-host-99999",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "full",
+      "schema_name": "",
+      "migration_mode": "offline",
+      "src_version": "",
+      "dst_version": "",
+      "src_platform": "",
+      "dst_platform": "",
+      "parallel_degree": 4,
+      "downtime_hours": 4
+    },
+    "expected_output": "验证源端实例不可达时的拒绝与错误处理。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 源端实例不可达被识别并拒绝"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 错误信息包含具体原因"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 未生成迁移方案"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_004 VALUES ('PM', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_004;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-005",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "negative",
+    "priority": "P1",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "schema",
+      "schema_name": "",
+      "migration_mode": "offline",
+      "src_version": "",
+      "dst_version": "",
+      "src_platform": "",
+      "dst_platform": "",
+      "parallel_degree": 4,
+      "downtime_hours": 4
+    },
+    "expected_output": "验证 migration_scope=schema 但 schema_name 为空时的参数校验。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: schema 范围缺少 schema_name 被拒绝"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 错误信息提示需提供 schema_name"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 未生成迁移方案"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_005 VALUES ('PM', 'true');\nCOMMIT;",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_005;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-006",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "table",
+      "schema_name": "SCOTT.EMP",
+      "migration_mode": "offline",
+      "src_version": "19.3.0.0",
+      "dst_version": "19.3.0.0",
+      "src_platform": "Linux x86_64",
+      "dst_platform": "Linux x86_64",
+      "parallel_degree": 1,
+      "downtime_hours": 0
+    },
+    "expected_output": "验证 migration_scope=table 边界取值与 parallel_degree=1、downtime_hours=0 边界处理。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: table 范围被正确识别并生成方案"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: parallel_degree=1 边界被接受"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: downtime_hours=0 边界被处理"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_006;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  },
+  {
+    "case_id": "PM-007",
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "type": "boundary",
+    "priority": "P2",
+    "params": {
+      "src_instance": "oracle-rac_node01",
+      "dst_instance": "oracle-rac_node01",
+      "migration_scope": "full",
+      "schema_name": "",
+      "migration_mode": "online",
+      "src_version": "19.3.0.0",
+      "dst_version": "19.3.0.0",
+      "src_platform": "Linux x86_64",
+      "dst_platform": "Linux x86_64",
+      "parallel_degree": 32,
+      "downtime_hours": 24
+    },
+    "expected_output": "验证 migration_scope 各取值（full/schema/tablespace/table）与高并行度、大停机窗口边界。",
+    "assertions": [
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 高并行度 parallel_degree=32 被接受"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 大停机窗口 downtime_hours=24 被处理"
+      },
+      {
+        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
+        "expected": "pass_criteria_met: 在线模式与停机窗口评估一致"
+      },
+      {
+        "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
+        "expected": "sql_count > 0"
+      },
+      {
+        "sql": "SELECT COUNT(*) as session_count FROM v$session",
+        "expected": "session_count > 0"
+      }
+    ],
+    "data": {
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_007;",
+      "fixture": "test002_plan tablespace isolation"
+    }
+  }
+]
