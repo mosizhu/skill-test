@@ -24,20 +24,24 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 备份类型选型明确（全量+归档）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_001 WHERE INSTR(output_text, '全量') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 全量"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 备份频率与保留策略明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_001 WHERE INSTR(output_text, '保留') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 保留"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 备份目标与性能优化（并行/压缩）明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_001 WHERE INSTR(output_text, '并行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 并行"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验与恢复演练方案明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_001 WHERE INSTR(output_text, '校验') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 校验"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -49,10 +53,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PB_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PB_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PB_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PB_001;\nDROP TABLE SKILL_OUTPUT_PB_001;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_001 表（INSERT INTO SKILL_OUTPUT_PB_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-002",
@@ -79,16 +84,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 增量备份频率与变更评估明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_002 WHERE INSTR(output_text, '增量') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 增量"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 磁盘+磁带两级备份目标明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_002 WHERE INSTR(output_text, '磁带') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 磁带"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 异地容灾与加密策略明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_002 WHERE INSTR(output_text, '容灾') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 容灾"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -100,10 +108,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PB_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PB_002;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PB_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PB_002;\nDROP TABLE SKILL_OUTPUT_PB_002;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_002 表（INSERT INTO SKILL_OUTPUT_PB_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-003",
@@ -130,16 +139,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 归档日志备份频率与保留明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_003 WHERE INSTR(output_text, '归档') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 归档"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 磁带备份目标配置明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_003 WHERE INSTR(output_text, '磁带') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 磁带"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 与 RPO 目标匹配的归档策略明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_003 WHERE INSTR(output_text, 'RPO') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: RPO"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -151,10 +163,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PB_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PB_003;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PB_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PB_003;\nDROP TABLE SKILL_OUTPUT_PB_003;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_003 表（INSERT INTO SKILL_OUTPUT_PB_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-004",
@@ -177,16 +190,19 @@
     "expected_output": "验证实例不可达时的拒绝与错误处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 实例不可达被识别并拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_004 WHERE INSTR(output_text, '不可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不可达"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息包含具体原因"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_004 WHERE INSTR(output_text, '原因') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 原因"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未生成备份策略"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_004 WHERE INSTR(output_text, '备份策略') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 备份策略"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -198,10 +214,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_PB_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PB_004 VALUES ('PB', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_PB_004;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PB_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PB_004 VALUES ('PB', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PB_004;\nDROP TABLE SKILL_OUTPUT_PB_004;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_004 表（INSERT INTO SKILL_OUTPUT_PB_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-005",
@@ -224,16 +241,19 @@
     "expected_output": "验证非法 backup_scope 取值的参数校验。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 非法 backup_scope 被拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_005 WHERE INSTR(output_text, 'backup_scope') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: backup_scope"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息提示合法取值"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_005 WHERE INSTR(output_text, '合法') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 合法"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未生成备份策略"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_005 WHERE INSTR(output_text, '备份策略') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 备份策略"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -245,10 +265,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_PB_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PB_005 VALUES ('PB', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_PB_005;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PB_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PB_005 VALUES ('PB', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PB_005;\nDROP TABLE SKILL_OUTPUT_PB_005;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_005 表（INSERT INTO SKILL_OUTPUT_PB_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-006",
@@ -271,16 +292,19 @@
     "expected_output": "验证 rpo_hours > rto_hours 关系边界与 retention_days=1、daily_change_pct=0 边界处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: RPO>RTO 关系被识别并给出提示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_006 WHERE INSTR(output_text, 'RPO') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: RPO"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: retention_days=1 边界被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_006 WHERE INSTR(output_text, 'retention_days') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: retention_days"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: daily_change_pct=0 边界被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_006 WHERE INSTR(output_text, 'daily_change_pct') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: daily_change_pct"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -292,10 +316,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PB_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PB_006;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PB_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PB_006;\nDROP TABLE SKILL_OUTPUT_PB_006;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_006 表（INSERT INTO SKILL_OUTPUT_PB_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PB-007",
@@ -318,20 +343,24 @@
     "expected_output": "验证 backup_dest=cloud、custom 范围与超长保留期、超大库边界处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: cloud 备份目标被正确识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_007 WHERE INSTR(output_text, 'cloud') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: cloud"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: custom 范围被正确识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_007 WHERE INSTR(output_text, 'custom') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: custom"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 超长保留期 retention_days=365 被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_007 WHERE INSTR(output_text, 'retention_days') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: retention_days"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 超大库 data_size_gb=10000 被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PB_007 WHERE INSTR(output_text, 'data_size_gb') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: data_size_gb"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -343,9 +372,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PB_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PB_007;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PB_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PB_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PB_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PB_007;\nDROP TABLE SKILL_OUTPUT_PB_007;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PB-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PB_007 表（INSERT INTO SKILL_OUTPUT_PB_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

@@ -26,16 +26,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验报告包含双签审批记录（approver_one 与 approver_two）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_001 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验报告逐项列出 DG 配置/同步延迟/归档连续性/SRL/FRA/数据文件状态"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_001 WHERE INSTR(output_text, 'DG') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: DG"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确标注未执行实际切换（validate_only=true）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_001 WHERE INSTR(output_text, 'validate_only') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: validate_only"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -47,10 +50,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_SW_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_SW_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_SW_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_SW_001;\nDROP TABLE SKILL_OUTPUT_SW_001;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_001 表（INSERT INTO SKILL_OUTPUT_SW_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-002",
@@ -79,16 +83,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验报告包含主库角色/switchover_status/归档传输/GAP 状态"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_002 WHERE INSTR(output_text, 'switchover_status') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: switchover_status"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 validate_only=true 未执行实际切换，需设 false 并双签后执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_002 WHERE INSTR(output_text, 'validate_only') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: validate_only"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息在报告中展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_002 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -100,10 +107,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_SW_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_SW_002;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_SW_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_SW_002;\nDROP TABLE SKILL_OUTPUT_SW_002;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_002 表（INSERT INTO SKILL_OUTPUT_SW_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-003",
@@ -132,16 +140,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验报告包含 Broker 配置状态与主备库角色"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_003 WHERE INSTR(output_text, 'Broker') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: Broker"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确标注 dg_broker 模式未执行 SWITCHOVER"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_003 WHERE INSTR(output_text, 'dg_broker') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: dg_broker"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息完整展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_003 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -153,10 +164,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_SW_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_SW_003;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_SW_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_SW_003;\nDROP TABLE SKILL_OUTPUT_SW_003;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_003 表（INSERT INTO SKILL_OUTPUT_SW_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-004",
@@ -180,12 +192,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 approver_one 缺失，需双人审批"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_004 WHERE INSTR(output_text, 'approver_one') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: approver_one"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何切换命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_004 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -193,10 +207,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_SW_004 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_004 VALUES ('missing_approver_one', 'blocked');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_SW_004;",
+      "setup": "CREATE TABLE ALERTS_SW_004 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_004 VALUES ('missing_approver_one', 'blocked');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_SW_004;\nDROP TABLE SKILL_OUTPUT_SW_004;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_004 表（INSERT INTO SKILL_OUTPUT_SW_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-005",
@@ -220,12 +235,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 approver_two 缺失，需双人审批"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_005 WHERE INSTR(output_text, 'approver_two') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: approver_two"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何切换命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_005 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -233,10 +250,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_SW_005 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_005 VALUES ('missing_approver_two', 'blocked');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_SW_005;",
+      "setup": "CREATE TABLE ALERTS_SW_005 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_005 VALUES ('missing_approver_two', 'blocked');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_SW_005;\nDROP TABLE SKILL_OUTPUT_SW_005;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_005 表（INSERT INTO SKILL_OUTPUT_SW_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-006",
@@ -260,12 +278,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 instance_host 不可达，连接失败"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_006 WHERE INSTR(output_text, '不可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不可达"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何切换命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_006 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -273,10 +293,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_SW_006 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_006 VALUES ('host_unreachable', 'unreachable');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_SW_006;",
+      "setup": "CREATE TABLE ALERTS_SW_006 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_SW_006 VALUES ('host_unreachable', 'unreachable');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_SW_006;\nDROP TABLE SKILL_OUTPUT_SW_006;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_006 表（INSERT INTO SKILL_OUTPUT_SW_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-007",
@@ -302,12 +323,14 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验报告包含同步延迟与 max_lag_seconds/max_lag_mb 阈值对比"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_007 WHERE INSTR(output_text, 'max_lag') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: max_lag"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 阈值边界处理明确（零容忍或提示扩大阈值）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_007 WHERE INSTR(output_text, '阈值') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 阈值"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -315,10 +338,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_SW_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_SW_007;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_SW_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_SW_007;\nDROP TABLE SKILL_OUTPUT_SW_007;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_007 表（INSERT INTO SKILL_OUTPUT_SW_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "SW-008",
@@ -342,16 +366,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确标注 skip_checks=true 跳过前置校验"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_008 WHERE INSTR(output_text, 'skip_checks') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: skip_checks"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出跳过校验的高风险提示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_008 WHERE INSTR(output_text, '跳过') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 跳过"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息完整展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_SW_008 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -359,9 +386,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_SW_008 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_008 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_SW_008;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_SW_008 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_SW_008 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_SW_008 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_SW_008;\nDROP TABLE SKILL_OUTPUT_SW_008;",
       "fixture": "test002_switchover tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 SW-008 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_SW_008 表（INSERT INTO SKILL_OUTPUT_SW_008 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

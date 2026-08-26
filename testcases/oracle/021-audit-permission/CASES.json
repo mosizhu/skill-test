@@ -14,20 +14,24 @@
     "expected_output": "验证账号状态审计输出：账号列表、锁定/过期状态、默认密码检测。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出账号状态审计结果"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_001 WHERE INSTR(output_text, '账号') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 账号"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 识别锁定/过期账号状态"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_001 WHERE INSTR(output_text, '锁定') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 锁定"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 检测默认密码账号"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_001 WHERE INSTR(output_text, '默认密码') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 默认密码"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 风险等级明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_001 WHERE INSTR(output_text, '风险等级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 风险等级"
       },
       {
         "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_001 WHERE status = 'complete'",
@@ -43,10 +47,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_001;\nDROP TABLE SKILL_OUTPUT_AP_001;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_001 表（INSERT INTO SKILL_OUTPUT_AP_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-002",
@@ -63,20 +68,24 @@
     "expected_output": "验证高危系统权限筛查输出：ALTER SYSTEM / GRANT ANY PRIVILEGE / ANY 类权限。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出系统权限审计结果"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_002 WHERE INSTR(output_text, '系统权限') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 系统权限"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 筛查出 ALTER SYSTEM 等高危权限"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_002 WHERE INSTR(output_text, 'ALTER SYSTEM') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: ALTER SYSTEM"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 识别 ANY 类权限"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_002 WHERE INSTR(output_text, 'ANY') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: ANY"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 风险等级明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_002 WHERE INSTR(output_text, '风险等级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 风险等级"
       },
       {
         "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_002 WHERE status = 'complete'",
@@ -92,10 +101,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_002;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_002;\nDROP TABLE SKILL_OUTPUT_AP_002;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_002 表（INSERT INTO SKILL_OUTPUT_AP_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-003",
@@ -112,20 +122,24 @@
     "expected_output": "验证口令策略审计输出：FAILED_LOGIN_ATTEMPTS / PASSWORD_LIFE_TIME / PASSWORD_VERIFY_FUNCTION。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出口令策略审计结果"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_003 WHERE INSTR(output_text, '口令策略') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 口令策略"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 检查 FAILED_LOGIN_ATTEMPTS 等密码策略参数"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_003 WHERE INSTR(output_text, 'FAILED_LOGIN_ATTEMPTS') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: FAILED_LOGIN_ATTEMPTS"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 检查 PASSWORD_VERIFY_FUNCTION 复杂度"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_003 WHERE INSTR(output_text, 'PASSWORD_VERIFY_FUNCTION') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: PASSWORD_VERIFY_FUNCTION"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 风险等级明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_003 WHERE INSTR(output_text, '风险等级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 风险等级"
       },
       {
         "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_003 WHERE status = 'complete'",
@@ -141,10 +155,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_003;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_003;\nDROP TABLE SKILL_OUTPUT_AP_003;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_003 表（INSERT INTO SKILL_OUTPUT_AP_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-004",
@@ -161,12 +176,14 @@
     "expected_output": "验证不可达主机时返回明确的结构化连接错误，不暴露底层异常栈。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 返回明确的连接失败错误提示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_004 WHERE INSTR(output_text, '连接失败') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 连接失败"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 不暴露底层异常栈"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_004 WHERE INSTR(output_text, '异常') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 异常"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -178,10 +195,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_004 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_004 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_004;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_004 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_004 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_004;\nDROP TABLE SKILL_OUTPUT_AP_004;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_004 表（INSERT INTO SKILL_OUTPUT_AP_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-005",
@@ -198,12 +216,14 @@
     "expected_output": "验证 username 指定不存在的账号时返回明确的提示，不产出审计报告。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 返回账号不存在的明确提示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_005 WHERE INSTR(output_text, '不存在') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不存在"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 不产出审计报告"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_005 WHERE INSTR(output_text, '审计') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 审计"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -215,10 +235,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_005 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_005 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_005;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_005 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_005 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_005;\nDROP TABLE SKILL_OUTPUT_AP_005;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_005 表（INSERT INTO SKILL_OUTPUT_AP_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-006",
@@ -235,16 +256,19 @@
     "expected_output": "验证 audit_scope 各取值（account/privilege/policy）正确限定审计维度，仅输出对应维度结果。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: account 范围仅输出账号状态审计"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_006 WHERE INSTR(output_text, '账号') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 账号"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: privilege 范围仅输出权限审计"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_006 WHERE INSTR(output_text, '权限') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 权限"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: policy 范围仅输出口令策略审计"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_006 WHERE INSTR(output_text, '口令策略') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 口令策略"
       },
       {
         "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_006 WHERE status = 'complete'",
@@ -260,10 +284,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_006;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_006;\nDROP TABLE SKILL_OUTPUT_AP_006;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_006 表（INSERT INTO SKILL_OUTPUT_AP_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "AP-007",
@@ -280,16 +305,19 @@
     "expected_output": "验证 include_sys=true 时审计范围包含 SYS/SYSTEM 等内置系统账号。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 审计范围包含系统账号"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_007 WHERE INSTR(output_text, '系统账号') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 系统账号"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出系统账号状态与权限"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_007 WHERE INSTR(output_text, '系统账号') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 系统账号"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 风险等级明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_AP_007 WHERE INSTR(output_text, '风险等级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 风险等级"
       },
       {
         "sql": "SELECT COUNT(*) as section_count FROM REPORT_SECTIONS_AP_007 WHERE status = 'complete'",
@@ -305,9 +333,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_AP_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_AP_007;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_AP_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_AP_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_AP_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_AP_007;\nDROP TABLE SKILL_OUTPUT_AP_007;",
       "fixture": "test002_audit_permission tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 AP-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_AP_007 表（INSERT INTO SKILL_OUTPUT_AP_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

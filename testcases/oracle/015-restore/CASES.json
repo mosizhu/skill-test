@@ -21,16 +21,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 恢复计划包含恢复类型/范围/备份集清单/归档日志范围"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_001 WHERE INSTR(output_text, '恢复计划') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 恢复计划"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确标注 dry_run=true 未实际执行恢复"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_001 WHERE INSTR(output_text, 'dry_run') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: dry_run"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息完整展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_001 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -42,10 +45,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_RS_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_RS_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_RS_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_RS_001;\nDROP TABLE SKILL_OUTPUT_RS_001;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_001 表（INSERT INTO SKILL_OUTPUT_RS_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-002",
@@ -69,16 +73,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 校验结果包含备份可用性与归档日志连续性结论"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_002 WHERE INSTR(output_text, '校验') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 校验"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确标注 validate 模式未实际恢复"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_002 WHERE INSTR(output_text, 'validate') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: validate"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息完整展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_002 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -90,10 +97,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_RS_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_RS_002;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_RS_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_RS_002;\nDROP TABLE SKILL_OUTPUT_RS_002;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_002 表（INSERT INTO SKILL_OUTPUT_RS_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-003",
@@ -117,16 +125,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 恢复计划包含全量恢复步骤与影响范围"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_003 WHERE INSTR(output_text, '恢复计划') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 恢复计划"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 dry_run=true 未执行恢复，需设 false 并双签后执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_003 WHERE INSTR(output_text, 'dry_run') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: dry_run"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 双签信息完整展示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_003 WHERE INSTR(output_text, '双签') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 双签"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -138,10 +149,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_RS_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_RS_003;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_RS_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_RS_003;\nDROP TABLE SKILL_OUTPUT_RS_003;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_003 表（INSERT INTO SKILL_OUTPUT_RS_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-004",
@@ -165,12 +177,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 approver_one 缺失，需双人审批"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_004 WHERE INSTR(output_text, 'approver_one') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: approver_one"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何恢复命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_004 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -178,10 +192,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_RS_004 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_004 VALUES ('missing_approver_one', 'blocked');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_RS_004;",
+      "setup": "CREATE TABLE ALERTS_RS_004 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_004 VALUES ('missing_approver_one', 'blocked');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_RS_004;\nDROP TABLE SKILL_OUTPUT_RS_004;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_004 表（INSERT INTO SKILL_OUTPUT_RS_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-005",
@@ -205,12 +220,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 restore_type 非法，列出支持的恢复类型"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_005 WHERE INSTR(output_text, 'restore_type') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: restore_type"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何恢复命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_005 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -218,10 +235,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_RS_005 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_005 VALUES ('invalid_restore_type', 'invalid');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_RS_005;",
+      "setup": "CREATE TABLE ALERTS_RS_005 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_005 VALUES ('invalid_restore_type', 'invalid');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_RS_005;\nDROP TABLE SKILL_OUTPUT_RS_005;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_005 表（INSERT INTO SKILL_OUTPUT_RS_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-006",
@@ -245,12 +263,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 instance_host 不可达，连接失败"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_006 WHERE INSTR(output_text, '不可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不可达"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何恢复命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_006 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -258,10 +278,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_RS_006 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_006 VALUES ('host_unreachable', 'unreachable');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_RS_006;",
+      "setup": "CREATE TABLE ALERTS_RS_006 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_006 VALUES ('host_unreachable', 'unreachable');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_RS_006;\nDROP TABLE SKILL_OUTPUT_RS_006;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_006 表（INSERT INTO SKILL_OUTPUT_RS_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-007",
@@ -287,12 +308,14 @@
         "expected": "alert_count >= 1"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确提示 until_time 与 until_scn 二选一冲突"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_007 WHERE INSTR(output_text, 'until_time') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: until_time"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未执行任何恢复命令"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_007 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -300,10 +323,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_RS_007 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_007 VALUES ('pitr_target_conflict', 'conflict');\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_RS_007;",
+      "setup": "CREATE TABLE ALERTS_RS_007 (alert_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO ALERTS_RS_007 VALUES ('pitr_target_conflict', 'conflict');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_RS_007;\nDROP TABLE SKILL_OUTPUT_RS_007;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_007 表（INSERT INTO SKILL_OUTPUT_RS_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "RS-008",
@@ -327,12 +351,14 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 明确处理 parallelism=0 边界（提示非法或回退默认）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_008 WHERE INSTR(output_text, 'parallelism') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: parallelism"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 恢复计划仍完整输出"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_RS_008 WHERE INSTR(output_text, '恢复计划') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 恢复计划"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -340,9 +366,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_RS_008 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_008 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_RS_008;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_RS_008 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_RS_008 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_RS_008 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_RS_008;\nDROP TABLE SKILL_OUTPUT_RS_008;",
       "fixture": "test002_restore tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 RS-008 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_RS_008 表（INSERT INTO SKILL_OUTPUT_RS_008 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

@@ -29,8 +29,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出备份状态汇总与最近备份时间"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_001 WHERE INSTR(output_text, '备份') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 备份"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -42,10 +43,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_001 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_001 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_001;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_001 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_001 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_001;\nDROP TABLE SKILL_OUTPUT_BK_001;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_001 表（INSERT INTO SKILL_OUTPUT_BK_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-002",
@@ -73,8 +75,9 @@
         "expected": "backup_count >= 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出备份校验结果与可恢复性结论"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_002 WHERE INSTR(output_text, '校验') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 校验"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -86,10 +89,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_002 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_002;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_002 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_002;\nDROP TABLE SKILL_OUTPUT_BK_002;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_002 表（INSERT INTO SKILL_OUTPUT_BK_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-003",
@@ -121,8 +125,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 输出备份执行摘要与备份集详情"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_003 WHERE INSTR(output_text, '备份集') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 备份集"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -134,10 +139,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_003 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_003;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_003 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_003;\nDROP TABLE SKILL_OUTPUT_BK_003;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_003 表（INSERT INTO SKILL_OUTPUT_BK_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-004",
@@ -161,8 +167,9 @@
     "expected_output": "验证不可达主机时连接失败，返回明确错误提示，不执行任何备份操作。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 连接失败并提示主机不可达"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_004 WHERE INSTR(output_text, '不可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不可达"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -170,10 +177,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_004 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_004;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_004 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_004;\nDROP TABLE SKILL_OUTPUT_BK_004;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_004 表（INSERT INTO SKILL_OUTPUT_BK_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-005",
@@ -197,8 +205,9 @@
     "expected_output": "验证非法 backup_type 被拒绝，返回明确错误提示，不执行任何备份操作。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 拒绝非法 backup_type 并提示合法取值"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_005 WHERE INSTR(output_text, 'backup_type') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: backup_type"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -206,10 +215,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_005 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_005;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_005 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_005;\nDROP TABLE SKILL_OUTPUT_BK_005;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_005 表（INSERT INTO SKILL_OUTPUT_BK_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-006",
@@ -233,8 +243,9 @@
     "expected_output": "验证非法 backup_dest 被拒绝，返回明确错误提示，不执行任何备份操作。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 拒绝非法 backup_dest 并提示合法取值"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_006 WHERE INSTR(output_text, 'backup_dest') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: backup_dest"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -242,10 +253,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_006 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_006;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_006 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_006;\nDROP TABLE SKILL_OUTPUT_BK_006;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_006 表（INSERT INTO SKILL_OUTPUT_BK_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-007",
@@ -269,8 +281,9 @@
     "expected_output": "验证 parallelism=1 与 compression=HIGH 边界组合，通道数与压缩算法被正确接受并处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 通道数与压缩算法边界被正确处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_007 WHERE INSTR(output_text, '通道') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 通道"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -282,10 +295,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_007 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_007 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_007;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_007 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_007 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_007;\nDROP TABLE SKILL_OUTPUT_BK_007;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_007 表（INSERT INTO SKILL_OUTPUT_BK_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "BK-008",
@@ -309,8 +323,9 @@
     "expected_output": "验证 duration_minutes=1 极小备份窗口限制，超时自动中断并提示部分备份未完成。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 备份窗口超时自动中断并提示"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_BK_008 WHERE INSTR(output_text, '超时') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 超时"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -318,9 +333,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE BK_CHECKS_BK_008 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_008 VALUES ('BK', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE BK_CHECKS_BK_008;",
+      "setup": "CREATE TABLE BK_CHECKS_BK_008 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO BK_CHECKS_BK_008 VALUES ('BK', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_BK_008 (output_text CLOB);\n",
+      "rollback": "DROP TABLE BK_CHECKS_BK_008;\nDROP TABLE SKILL_OUTPUT_BK_008;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 BK-008 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_BK_008 表（INSERT INTO SKILL_OUTPUT_BK_008 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

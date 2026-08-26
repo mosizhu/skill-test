@@ -25,20 +25,24 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 迁移范围评估完整（版本/平台/数据量/对象清单）"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_001 WHERE INSTR(output_text, '迁移') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 迁移"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 迁移方式选型有主方案与备选方案及理由"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_001 WHERE INSTR(output_text, '迁移方式') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 迁移方式"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 前置检查清单覆盖源端/目标端/网络存储"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_001 WHERE INSTR(output_text, '前置检查') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 前置检查"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 一致性校验与回滚割接步骤明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_001 WHERE INSTR(output_text, '回滚') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 回滚"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -50,10 +54,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PM_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PM_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_001;\nDROP TABLE SKILL_OUTPUT_PM_001;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_001 表（INSERT INTO SKILL_OUTPUT_PM_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-002",
@@ -81,16 +86,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 方案针对指定 schema 且含在线同步方式"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_002 WHERE INSTR(output_text, 'schema') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: schema"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有分批策略与并行通道配置"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_002 WHERE INSTR(output_text, '并行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 并行"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有割接时间线与回滚方案"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_002 WHERE INSTR(output_text, '回滚') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 回滚"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -102,10 +110,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PM_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PM_002;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_002 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_002 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_002;\nDROP TABLE SKILL_OUTPUT_PM_002;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_002 表（INSERT INTO SKILL_OUTPUT_PM_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-003",
@@ -133,16 +142,19 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 方案针对表空间范围且含跨平台处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_003 WHERE INSTR(output_text, '表空间') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 表空间"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 混合模式含全量+增量同步步骤"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_003 WHERE INSTR(output_text, '增量') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 增量"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有字节序/字符集兼容性说明"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_003 WHERE INSTR(output_text, '字符集') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 字符集"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -154,10 +166,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PM_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PM_003;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_003 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_003 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_003;\nDROP TABLE SKILL_OUTPUT_PM_003;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_003 表（INSERT INTO SKILL_OUTPUT_PM_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-004",
@@ -181,16 +194,19 @@
     "expected_output": "验证源端实例不可达时的拒绝与错误处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 源端实例不可达被识别并拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_004 WHERE INSTR(output_text, '不可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 不可达"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息包含具体原因"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_004 WHERE INSTR(output_text, '原因') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 原因"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未生成迁移方案"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_004 WHERE INSTR(output_text, '迁移方案') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 迁移方案"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -202,10 +218,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_004 VALUES ('PM', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_004;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_004 VALUES ('PM', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_004;\nDROP TABLE SKILL_OUTPUT_PM_004;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_004 表（INSERT INTO SKILL_OUTPUT_PM_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-005",
@@ -229,16 +246,19 @@
     "expected_output": "验证 migration_scope=schema 但 schema_name 为空时的参数校验。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: schema 范围缺少 schema_name 被拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_005 WHERE INSTR(output_text, 'schema_name') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: schema_name"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息提示需提供 schema_name"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_005 WHERE INSTR(output_text, 'schema_name') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: schema_name"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未生成迁移方案"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_005 WHERE INSTR(output_text, '迁移方案') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 迁移方案"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -250,10 +270,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_005 VALUES ('PM', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_005;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PM_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PM_005 VALUES ('PM', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PM_005;\nDROP TABLE SKILL_OUTPUT_PM_005;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_005 表（INSERT INTO SKILL_OUTPUT_PM_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-006",
@@ -277,16 +298,19 @@
     "expected_output": "验证 migration_scope=table 边界取值与 parallel_degree=1、downtime_hours=0 边界处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: table 范围被正确识别并生成方案"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_006 WHERE INSTR(output_text, 'table') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: table"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: parallel_degree=1 边界被接受"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_006 WHERE INSTR(output_text, 'parallel_degree') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: parallel_degree"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: downtime_hours=0 边界被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_006 WHERE INSTR(output_text, 'downtime_hours') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: downtime_hours"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -298,10 +322,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PM_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PM_006;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_006;\nDROP TABLE SKILL_OUTPUT_PM_006;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_006 表（INSERT INTO SKILL_OUTPUT_PM_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PM-007",
@@ -325,16 +350,19 @@
     "expected_output": "验证 migration_scope 各取值（full/schema/tablespace/table）与高并行度、大停机窗口边界。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 高并行度 parallel_degree=32 被接受"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_007 WHERE INSTR(output_text, 'parallel_degree') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: parallel_degree"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 大停机窗口 downtime_hours=24 被处理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_007 WHERE INSTR(output_text, 'downtime_hours') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: downtime_hours"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 在线模式与停机窗口评估一致"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PM_007 WHERE INSTR(output_text, '停机') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 停机"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -346,9 +374,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_PM_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_PM_007;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_PM_007 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PM_007 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PM_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_PM_007;\nDROP TABLE SKILL_OUTPUT_PM_007;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PM-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PM_007 表（INSERT INTO SKILL_OUTPUT_PM_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

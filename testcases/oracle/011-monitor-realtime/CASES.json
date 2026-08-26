@@ -23,15 +23,17 @@
         "expected": "sql_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 数据库可达，监控指标可采集"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_001 WHERE INSTR(output_text, '可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 可达"
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_MR_001 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_MR_001;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_001 表（INSERT INTO SKILL_OUTPUT_MR_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-002",
@@ -62,10 +64,11 @@
       }
     ],
     "data": {
-      "setup": "SELECT COUNT(*) as total,\n          SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) as active,\n          SUM(CASE WHEN status='INACTIVE' THEN 1 ELSE 0 END) as inactive\n   FROM v$session;\nCREATE TABLE ACCURACY_CHECKS_MR002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR002 VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_MR002;",
+      "setup": "SELECT COUNT(*) as total,\n          SUM(CASE WHEN status='ACTIVE' THEN 1 ELSE 0 END) as active,\n          SUM(CASE WHEN status='INACTIVE' THEN 1 ELSE 0 END) as inactive\n   FROM v$session;\nCREATE TABLE ACCURACY_CHECKS_MR002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR002 VALUES ('MR', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_MR002;\nDROP TABLE SKILL_OUTPUT_MR_002;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_002 表（INSERT INTO SKILL_OUTPUT_MR_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-003",
@@ -91,15 +94,17 @@
         "expected": "session_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 未超过阈值的指标不产生误报"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_003 WHERE INSTR(output_text, '阈值') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 阈值"
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   -- 填充数据触发表空间告警\n   INSERT /*+ APPEND */ INTO TEST_MR_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 5000);\n   COMMIT;\n   \n   -- 触发会话数告警: 创建 50 个会话\nCREATE TABLE ALERTS_MR003 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR003 VALUES ('WARNING', 'test_alert');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_LOAD;\nDROP TABLE ALERTS_MR003;",
+      "setup": "CREATE TABLE TEST_MR_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   -- 填充数据触发表空间告警\n   INSERT /*+ APPEND */ INTO TEST_MR_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 5000);\n   COMMIT;\n   \n   -- 触发会话数告警: 创建 50 个会话\nCREATE TABLE ALERTS_MR003 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR003 VALUES ('WARNING', 'test_alert');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_MR_LOAD;\nDROP TABLE ALERTS_MR003;\nDROP TABLE SKILL_OUTPUT_MR_003;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_003 表（INSERT INTO SKILL_OUTPUT_MR_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-004",
@@ -117,8 +122,9 @@
     "expected_output": "验证非法参数输入的处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 数据库可达"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_004 WHERE INSTR(output_text, '可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 可达"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -126,10 +132,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_MR_004 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_MR_004;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_004 表（INSERT INTO SKILL_OUTPUT_MR_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-005",
@@ -147,8 +154,9 @@
     "expected_output": "验证断线重连的能力。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 数据库可达"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_005 WHERE INSTR(output_text, '可达') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 可达"
       },
       {
         "sql": "SELECT COUNT(*) as session_count FROM v$session",
@@ -156,10 +164,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_MR_005 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_MR_005;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_005 表（INSERT INTO SKILL_OUTPUT_MR_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-006",
@@ -185,15 +194,17 @@
         "expected": "session_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 高阈值覆盖场景监控正常"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_006 WHERE INSTR(output_text, '阈值') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 阈值"
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_HIGH_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MR_HIGH_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_MR006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_MR006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_HIGH_LOAD;\nDROP TABLE REPORT_SECTIONS_MR006;",
+      "setup": "CREATE TABLE TEST_MR_HIGH_LOAD (id NUMBER, data VARCHAR2(4000)) TABLESPACE TEST002;\n   \n   INSERT /*+ APPEND */ INTO TEST_MR_HIGH_LOAD SELECT ROWNUM, RPAD('X', 4000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_MR006 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_MR006 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_MR_HIGH_LOAD;\nDROP TABLE REPORT_SECTIONS_MR006;\nDROP TABLE SKILL_OUTPUT_MR_006;",
       "fixture": "test002_load tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_006 表（INSERT INTO SKILL_OUTPUT_MR_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-007",
@@ -219,15 +230,17 @@
         "expected": "session_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 多指标告警按严重程度排序"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_007 WHERE INSTR(output_text, '严重程度') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 严重程度"
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_MR_MULTI (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_MR_MULTI SELECT ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ALERTS_MR007 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR007 VALUES ('WARNING', 'test_alert');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_MR_MULTI;\nDROP TABLE ALERTS_MR007;",
+      "setup": "CREATE TABLE TEST_MR_MULTI (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_MR_MULTI SELECT ROWNUM,\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ALERTS_MR007 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nINSERT INTO ALERTS_MR007 VALUES ('WARNING', 'test_alert');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_MR_MULTI;\nDROP TABLE ALERTS_MR007;\nDROP TABLE SKILL_OUTPUT_MR_007;",
       "fixture": "test002_multi tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_007 表（INSERT INTO SKILL_OUTPUT_MR_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-008",
@@ -253,15 +266,17 @@
         "expected": "session_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 快照时间戳精确到秒、时间顺序正确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_008 WHERE INSTR(output_text, '时间戳') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 时间戳"
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_MR008 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR008 VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_MR008;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_MR008 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_MR008 VALUES ('MR', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_008 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_MR008;\nDROP TABLE SKILL_OUTPUT_MR_008;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-008 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_008 表（INSERT INTO SKILL_OUTPUT_MR_008 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "MR-009",
@@ -287,14 +302,16 @@
         "expected": "session_count > 0"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 监控输出格式规范、有总结段落"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_MR_009 WHERE INSTR(output_text, '总结') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 总结"
       }
     ],
     "data": {
-      "setup": "CREATE TABLE OUTPUT_CHECKS_MR009 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_MR009 VALUES ('MR', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE OUTPUT_CHECKS_MR009;",
+      "setup": "CREATE TABLE OUTPUT_CHECKS_MR009 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_MR009 VALUES ('MR', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_MR_009 (output_text CLOB);\n",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_MR009;\nDROP TABLE SKILL_OUTPUT_MR_009;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 MR-009 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_MR_009 表（INSERT INTO SKILL_OUTPUT_MR_009 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]
