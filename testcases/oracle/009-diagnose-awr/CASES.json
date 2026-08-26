@@ -19,20 +19,24 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: Load Profile 包含所有关键指标"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_001 WHERE INSTR(output_text, 'Load Profile') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: Load Profile"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: Top 5 时间模型按总时间排序"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_001 WHERE INSTR(output_text, '时间模型') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 时间模型"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: Top 10 等待事件包含总等待时间和平均等待"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_001 WHERE INSTR(output_text, '等待事件') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 等待事件"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: Top 10 SQL 包含执行次数、时间、逻辑读"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_001 WHERE INSTR(output_text, 'SQL') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: SQL"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -44,10 +48,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE REPORT_SECTIONS_DA_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_DA_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE REPORT_SECTIONS_DA_001;",
+      "setup": "CREATE TABLE REPORT_SECTIONS_DA_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_DA_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DA_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE REPORT_SECTIONS_DA_001;\nDROP TABLE SKILL_OUTPUT_DA_001;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_001 表（INSERT INTO SKILL_OUTPUT_DA_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-002",
@@ -65,12 +70,14 @@
     "expected_output": "验证 AWR 趋势分析的准确性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 趋势分析正确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_002 WHERE INSTR(output_text, '趋势') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 趋势"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 波峰/波谷有明确时间点"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_002 WHERE INSTR(output_text, '波峰') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 波峰"
       },
       {
         "sql": "SELECT verification_result FROM ACCURACY_CHECKS_DA_002 WHERE test_id = 'DA'",
@@ -86,10 +93,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_002 VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_002;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_002 VALUES ('DA', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DA_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_002;\nDROP TABLE SKILL_OUTPUT_DA_002;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_002 表（INSERT INTO SKILL_OUTPUT_DA_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-003",
@@ -107,16 +115,19 @@
     "expected_output": "验证 AWR 诊断优化建议的可执行性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 所有建议可执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_003 WHERE INSTR(output_text, '建议') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 建议"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有明确的操作步骤"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_003 WHERE INSTR(output_text, '步骤') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 步骤"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 高风险操作有标注"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_003 WHERE INSTR(output_text, '高风险') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 高风险"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -128,10 +139,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_DA_003 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_DA_003;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_003 表（INSERT INTO SKILL_OUTPUT_DA_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-004",
@@ -153,8 +165,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 给出清晰的错误说明"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_004 WHERE INSTR(output_text, '错误') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 错误"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -166,10 +179,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_004 VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_004;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_004 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_004 VALUES ('DA', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DA_004 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_004;\nDROP TABLE SKILL_OUTPUT_DA_004;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_004 表（INSERT INTO SKILL_OUTPUT_DA_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-005",
@@ -187,12 +201,14 @@
     "expected_output": "[Setup SQL present] 验证瞬时峰值的 AWR 分析能力。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 峰值时间段被正确识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_005 WHERE INSTR(output_text, '峰值') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 峰值"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 峰值原因有推测"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_005 WHERE INSTR(output_text, '峰值') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 峰值"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -204,10 +220,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DA_PEAK (id NUMBER, data CLOB) TABLESPACE TEST002;\n   \n   -- 短时间大量插入，产生峰值\n   INSERT /*+ APPEND */ INTO TEST_DA_PEAK SELECT ROWNUM, RPAD('X', 2000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 10000);\n   COMMIT;\n   \n   -- 立即清理\n   DELETE FROM TEST_DA_PEAK;\n   COMMIT;",
-      "rollback": "DROP TABLE TEST_DA_PEAK;",
+      "setup": "CREATE TABLE TEST_DA_PEAK (id NUMBER, data CLOB) TABLESPACE TEST002;\n   \n   -- 短时间大量插入，产生峰值\n   INSERT /*+ APPEND */ INTO TEST_DA_PEAK SELECT ROWNUM, RPAD('X', 2000, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 10000);\n   COMMIT;\n   \n   -- 立即清理\n   DELETE FROM TEST_DA_PEAK;\n   COMMIT;\nCREATE TABLE SKILL_OUTPUT_DA_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_DA_PEAK;\nDROP TABLE SKILL_OUTPUT_DA_005;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_005 表（INSERT INTO SKILL_OUTPUT_DA_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-006",
@@ -229,8 +246,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: SQL 统计变化正确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_006 WHERE INSTR(output_text, '统计') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 统计"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -242,10 +260,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_006 VALUES ('DA', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_006;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DA_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DA_006 VALUES ('DA', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DA_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DA_006;\nDROP TABLE SKILL_OUTPUT_DA_006;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_006 表（INSERT INTO SKILL_OUTPUT_DA_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DA-007",
@@ -263,16 +282,19 @@
     "expected_output": "验证长周期趋势分析的准确性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 分段分析正确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_007 WHERE INSTR(output_text, '分段') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 分段"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 模式被识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_007 WHERE INSTR(output_text, '模式') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 模式"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 趋势线正确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DA_007 WHERE INSTR(output_text, '趋势') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 趋势"
       },
       {
         "sql": "SELECT COUNT(*) as snap_count FROM dba_hist_snapshot",
@@ -284,9 +306,10 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_DA_007 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_DA_007;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DA-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DA_007 表（INSERT INTO SKILL_OUTPUT_DA_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

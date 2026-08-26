@@ -21,20 +21,24 @@
         "expected": "section_count >= 5"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 问题识别有具体行号和原因"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_001 WHERE INSTR(output_text, '行号') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 行号"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 优化建议有 SQL 语句"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_001 WHERE INSTR(output_text, 'SQL') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: SQL"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 风险等级明确"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_001 WHERE INSTR(output_text, '风险等级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 风险等级"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有预估的性能改善"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_001 WHERE INSTR(output_text, '性能') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 性能"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -46,10 +50,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_PLAN (\n     id NUMBER,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_PT_IDX_PLAN ON TEST_PT_PLAN(created_date);\n   -- 注意: name 和 status 列无索引，用于测试问题识别\n   \n   INSERT INTO TEST_PT_PLAN SELECT ROWNUM,\n     RPAD('NAME', 100, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_PT_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PT_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_PT_PLAN;\nDROP INDEX TEST_PT_IDX_PLAN;\nDROP TABLE REPORT_SECTIONS_PT_001;",
+      "setup": "CREATE TABLE TEST_PT_PLAN (\n     id NUMBER,\n     name VARCHAR2(100),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   -- 创建部分索引（故意不创建全索引，产生全表扫描）\n   CREATE INDEX TEST_PT_IDX_PLAN ON TEST_PT_PLAN(created_date);\n   -- 注意: name 和 status 列无索引，用于测试问题识别\n   \n   INSERT INTO TEST_PT_PLAN SELECT ROWNUM,\n     RPAD('NAME', 100, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'ACTIVE' WHEN 1 THEN 'INACTIVE' ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE REPORT_SECTIONS_PT_001 (section_name VARCHAR2(100), status VARCHAR2(20)) TABLESPACE TEST002;\nINSERT INTO REPORT_SECTIONS_PT_001 SELECT 'section_'||LEVEL, 'complete' FROM dual CONNECT BY LEVEL <= 5;\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PT_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_PT_PLAN;\nDROP INDEX TEST_PT_IDX_PLAN;\nDROP TABLE REPORT_SECTIONS_PT_001;\nDROP TABLE SKILL_OUTPUT_PT_001;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_001 表（INSERT INTO SKILL_OUTPUT_PT_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-002",
@@ -69,16 +74,19 @@
     "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 所有建议可执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_002 WHERE INSTR(output_text, '建议') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 建议"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有明确的操作步骤"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_002 WHERE INSTR(output_text, '步骤') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 步骤"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 高风险操作有标注"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_002 WHERE INSTR(output_text, '高风险') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 高风险"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -90,10 +98,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_EXEC (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   -- 只创建部分索引\n   CREATE INDEX TEST_PT_IDX_EXEC ON TEST_PT_EXEC(code);\n   \n   INSERT INTO TEST_PT_EXEC SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;",
-      "rollback": "DROP TABLE TEST_PT_EXEC;\nDROP INDEX TEST_PT_IDX_EXEC;",
+      "setup": "CREATE TABLE TEST_PT_EXEC (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   -- 只创建部分索引\n   CREATE INDEX TEST_PT_IDX_EXEC ON TEST_PT_EXEC(code);\n   \n   INSERT INTO TEST_PT_EXEC SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE SKILL_OUTPUT_PT_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_PT_EXEC;\nDROP INDEX TEST_PT_IDX_EXEC;\nDROP TABLE SKILL_OUTPUT_PT_002;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_002 表（INSERT INTO SKILL_OUTPUT_PT_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-003",
@@ -113,16 +122,18 @@
     "expected_output": "[Setup SQL present] 验证影响评估的准确性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 预估改善合理"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_003 WHERE INSTR(output_text, '改善') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 改善"
       },
       {
         "sql": "SELECT verification_result FROM ACCURACY_CHECKS_PT_003 WHERE test_id = 'PT'",
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有置信度说明"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_003 WHERE INSTR(output_text, '置信度') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 置信度"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -134,10 +145,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_IMPACT (\n     id NUMBER,\n     name VARCHAR2(100),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_IMPACT SELECT ROWNUM, RPAD('NAME', 100, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_PT_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_003 VALUES ('PT', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_PT_IMPACT;\nDROP TABLE ACCURACY_CHECKS_PT_003;",
+      "setup": "CREATE TABLE TEST_PT_IMPACT (\n     id NUMBER,\n     name VARCHAR2(100),\n     value NUMBER\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_IMPACT SELECT ROWNUM, RPAD('NAME', 100, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_PT_003 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_003 VALUES ('PT', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PT_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_PT_IMPACT;\nDROP TABLE ACCURACY_CHECKS_PT_003;\nDROP TABLE SKILL_OUTPUT_PT_003;",
       "fixture": "test002_plan tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_003 表（INSERT INTO SKILL_OUTPUT_PT_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-004",
@@ -157,16 +169,19 @@
     "expected_output": "验证非法 SQL 输入的处理。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 非法参数被拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_004 WHERE INSTR(output_text, '非法') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 非法"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息包含具体原因"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_004 WHERE INSTR(output_text, '原因') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 原因"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 无 SQL 执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_004 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -178,10 +193,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_PT_004 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_PT_004;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_004 表（INSERT INTO SKILL_OUTPUT_PT_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-005",
@@ -205,8 +221,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 给出清晰的错误说明"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_005 WHERE INSTR(output_text, '错误') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 错误"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -218,10 +235,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_PT_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_005 VALUES ('PT', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_PT_005;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_PT_005 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_PT_005 VALUES ('PT', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_PT_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_PT_005;\nDROP TABLE SKILL_OUTPUT_PT_005;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_005 表（INSERT INTO SKILL_OUTPUT_PT_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-006",
@@ -241,16 +259,19 @@
     "expected_output": "验证 SQL 注入防护。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: SQL 注入被识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_006 WHERE INSTR(output_text, '注入') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 注入"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 不执行任何查询"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_006 WHERE INSTR(output_text, '未执行') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 未执行"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息说明原因"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_006 WHERE INSTR(output_text, '原因') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 原因"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -262,10 +283,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_PT_006 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_PT_006;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_006 表（INSERT INTO SKILL_OUTPUT_PT_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "PT-007",
@@ -285,16 +307,19 @@
     "expected_output": "[Setup SQL present] 验证复杂嵌套查询的诊断准确性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 嵌套结构正确识别"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_007 WHERE INSTR(output_text, '嵌套') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 嵌套"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 每层有统计信息"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_007 WHERE INSTR(output_text, '统计') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 统计"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 优化建议有效"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_PT_007 WHERE INSTR(output_text, '优化建议') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 优化建议"
       },
       {
         "sql": "SELECT COUNT(*) as sql_count FROM v$sql WHERE executions > 0",
@@ -306,9 +331,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_PT_NESTED (id NUMBER, parent_id NUMBER, name VARCHAR2(100)) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_NESTED SELECT ROWNUM, MOD(ROWNUM, 500), RPAD('NAME', 100, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;",
-      "rollback": "DROP TABLE TEST_PT_NESTED;",
+      "setup": "CREATE TABLE TEST_PT_NESTED (id NUMBER, parent_id NUMBER, name VARCHAR2(100)) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_PT_NESTED SELECT ROWNUM, MOD(ROWNUM, 500), RPAD('NAME', 100, 'X')\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\nCREATE TABLE SKILL_OUTPUT_PT_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_PT_NESTED;\nDROP TABLE SKILL_OUTPUT_PT_007;",
       "fixture": "test002_nested tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 PT-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_PT_007 表（INSERT INTO SKILL_OUTPUT_PT_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]

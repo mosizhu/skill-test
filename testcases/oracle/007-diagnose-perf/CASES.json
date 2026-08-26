@@ -24,16 +24,19 @@
         "expected": "score between 0 and 100"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 瓶颈分析有具体发现和影响说明"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_001 WHERE INSTR(output_text, '瓶颈') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 瓶颈"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 优化建议按优先级排序"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_001 WHERE INSTR(output_text, '优先级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 优先级"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 关键参数有当前值与建议值对比"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_001 WHERE INSTR(output_text, '参数') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 参数"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -45,10 +48,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE PERF_SCORES_DP_001 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_001 VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE PERF_SCORES_DP_001;",
+      "setup": "CREATE TABLE PERF_SCORES_DP_001 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_001 VALUES ('overall', 85);\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_001 (output_text CLOB);\n",
+      "rollback": "DROP TABLE PERF_SCORES_DP_001;\nDROP TABLE SKILL_OUTPUT_DP_001;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-001 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_001 表（INSERT INTO SKILL_OUTPUT_DP_001 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-002",
@@ -71,12 +75,14 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 至少列出前 3 大瓶颈"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_002 WHERE INSTR(output_text, '瓶颈') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 瓶颈"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 每个瓶颈有量化数据支撑"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_002 WHERE INSTR(output_text, '瓶颈') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 瓶颈"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -88,10 +94,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ACCURACY_CHECKS_DP_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_002 VALUES ('DP', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE ACCURACY_CHECKS_DP_002;",
+      "setup": "CREATE TABLE ACCURACY_CHECKS_DP_002 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_002 VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_002 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ACCURACY_CHECKS_DP_002;\nDROP TABLE SKILL_OUTPUT_DP_002;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-002 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_002 表（INSERT INTO SKILL_OUTPUT_DP_002 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-003",
@@ -110,16 +117,19 @@
     "expected_output": "[Setup SQL present] 验证优化建议的可执行性。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 所有建议可执行"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_003 WHERE INSTR(output_text, '建议') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 建议"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有明确的操作步骤"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_003 WHERE INSTR(output_text, '步骤') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 步骤"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 高风险操作有标注"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_003 WHERE INSTR(output_text, '高风险') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 高风险"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -131,10 +141,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DP_PERF_TEST (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_PERF_TEST SELECT ROWNUM,\n     RPAD('CODE', 50, 'X'), 'ACTIVE', ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 创建部分索引（故意遗漏 status 列）\n   CREATE INDEX TEST_DP_IDX_PERF ON TEST_DP_PERF_TEST(created_date);\n   -- 注意: code 和 status 列无索引",
-      "rollback": "DROP TABLE TEST_DP_PERF_TEST;\nDROP INDEX TEST_DP_IDX_PERF;",
+      "setup": "CREATE TABLE TEST_DP_PERF_TEST (\n     id NUMBER,\n     code VARCHAR2(50),\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_PERF_TEST SELECT ROWNUM,\n     RPAD('CODE', 50, 'X'), 'ACTIVE', ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 创建部分索引（故意遗漏 status 列）\n   CREATE INDEX TEST_DP_IDX_PERF ON TEST_DP_PERF_TEST(created_date);\n   -- 注意: code 和 status 列无索引\nCREATE TABLE SKILL_OUTPUT_DP_003 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_DP_PERF_TEST;\nDROP INDEX TEST_DP_IDX_PERF;\nDROP TABLE SKILL_OUTPUT_DP_003;",
       "fixture": "test002_fill tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-003 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_003 表（INSERT INTO SKILL_OUTPUT_DP_003 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-004",
@@ -153,12 +164,14 @@
     "expected_output": "验证非法参数的处理能力。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 非法参数被拒绝"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_004 WHERE INSTR(output_text, '非法') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 非法"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 错误信息包含合法值列表"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_004 WHERE INSTR(output_text, '合法') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 合法"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -170,10 +183,11 @@
       }
     ],
     "data": {
-      "setup": "",
-      "rollback": "",
+      "setup": "\nCREATE TABLE SKILL_OUTPUT_DP_004 (output_text CLOB);\n",
+      "rollback": "\nDROP TABLE SKILL_OUTPUT_DP_004;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-004 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_004 表（INSERT INTO SKILL_OUTPUT_DP_004 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-005",
@@ -209,10 +223,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE ALERTS_DP_005 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_005 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_005 VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE ALERTS_DP_005;\nDROP TABLE PERF_SCORES_DP_005;",
+      "setup": "CREATE TABLE ALERTS_DP_005 (severity VARCHAR2(20), alert_name VARCHAR2(100)) TABLESPACE TEST002;\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_005 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_005 VALUES ('overall', 85);\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_005 (output_text CLOB);\n",
+      "rollback": "DROP TABLE ALERTS_DP_005;\nDROP TABLE PERF_SCORES_DP_005;\nDROP TABLE SKILL_OUTPUT_DP_005;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-005 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_005 表（INSERT INTO SKILL_OUTPUT_DP_005 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-006",
@@ -235,8 +250,9 @@
         "expected": "verification_result = true"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 并发场景瓶颈不遗漏"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_006 WHERE INSTR(output_text, '并发') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 并发"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -248,10 +264,11 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_DP_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_006 VALUES ('DP', 'true');\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\nDROP TABLE ACCURACY_CHECKS_DP_006;",
+      "setup": "CREATE TABLE TEST_DP_CONCURRENT (\n     id NUMBER,\n     status VARCHAR2(20),\n     value NUMBER,\n     created_date DATE\n   ) TABLESPACE TEST002;\n   \n   INSERT INTO TEST_DP_CONCURRENT SELECT ROWNUM,\n     CASE WHEN MOD(ROWNUM, 3) = 0 THEN 'ACTIVE'\n          WHEN MOD(ROWNUM, 3) = 1 THEN 'INACTIVE'\n          ELSE 'PENDING' END,\n     ROWNUM, SYSDATE - ROWNUM/1000\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 200000);\n   COMMIT;\nCREATE TABLE ACCURACY_CHECKS_DP_006 (test_id VARCHAR2(20), verification_result VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO ACCURACY_CHECKS_DP_006 VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_006 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_DP_CONCURRENT;\nDROP TABLE ACCURACY_CHECKS_DP_006;\nDROP TABLE SKILL_OUTPUT_DP_006;",
       "fixture": "test002_concurrent tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-006 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_006 表（INSERT INTO SKILL_OUTPUT_DP_006 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-007",
@@ -270,8 +287,9 @@
     "expected_output": "[Setup SQL present] 验证混合负载场景的诊断能力。",
     "assertions": [
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 不同性能表正确区分"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_007 WHERE INSTR(output_text, '性能') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 性能"
       },
       {
         "sql": "SELECT score FROM PERF_SCORES_DP_007 WHERE dimension = 'overall'",
@@ -287,10 +305,11 @@
       }
     ],
     "data": {
-      "setup": "-- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE PERF_SCORES_DP_007 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_007 VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\nDROP TABLE PERF_SCORES_DP_007;",
+      "setup": "-- 快速查询表（有完整索引）\n   CREATE TABLE TEST_DP_MIXED_FAST (id NUMBER, code VARCHAR2(50), status VARCHAR2(20), value NUMBER) TABLESPACE TEST002;\n   CREATE INDEX TEST_DP_IDX_FAST_1 ON TEST_DP_MIXED_FAST(code);\n   CREATE INDEX TEST_DP_IDX_FAST_2 ON TEST_DP_MIXED_FAST(status);\n   \n   INSERT INTO TEST_DP_MIXED_FAST SELECT ROWNUM, RPAD('CODE', 50, 'X'),\n     CASE MOD(ROWNUM, 3) WHEN 0 THEN 'A' WHEN 1 THEN 'B' ELSE 'C' END, ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 50000);\n   COMMIT;\n   \n   -- 慢查询表（无索引）\n   CREATE TABLE TEST_DP_MIXED_SLOW (id NUMBER, name VARCHAR2(200), value NUMBER) TABLESPACE TEST002;\n   INSERT INTO TEST_DP_MIXED_SLOW SELECT ROWNUM, RPAD('NAME', 200, 'X'), ROWNUM\n   FROM (SELECT ROWNUM FROM dual CONNECT BY LEVEL <= 100000);\n   COMMIT;\nCREATE TABLE PERF_SCORES_DP_007 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_007 VALUES ('overall', 85);\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_007 (output_text CLOB);\n",
+      "rollback": "DROP TABLE TEST_DP_MIXED_FAST;\nDROP TABLE TEST_DP_MIXED_SLOW;\nDROP INDEX TEST_DP_IDX_FAST_1;\nDROP INDEX TEST_DP_IDX_FAST_2;\nDROP TABLE PERF_SCORES_DP_007;\nDROP TABLE SKILL_OUTPUT_DP_007;",
       "fixture": "test002_mixed tablespace isolation"
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-007 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_007 表（INSERT INTO SKILL_OUTPUT_DP_007 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   },
   {
     "case_id": "DP-008",
@@ -317,12 +336,14 @@
         "expected": "score between 0 and 100"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 有摘要/结论段落"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_008 WHERE INSTR(output_text, '结论') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 结论"
       },
       {
-        "sql": "SELECT 1 as check_result FROM dual WHERE 1=1",
-        "expected": "pass_criteria_met: 优化建议有优先级"
+        "sql": "SELECT COUNT(*) as c FROM SKILL_OUTPUT_DP_008 WHERE INSTR(output_text, '优先级') > 0",
+        "expected": "c >= 1",
+        "note": "校验 skill 真实输出包含标记: 优先级"
       },
       {
         "sql": "SELECT COUNT(*) as stat_count FROM v$sysstat",
@@ -334,9 +355,10 @@
       }
     ],
     "data": {
-      "setup": "CREATE TABLE OUTPUT_CHECKS_DP_008 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_DP_008 VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_008 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_008 VALUES ('overall', 85);\nCOMMIT;",
-      "rollback": "DROP TABLE OUTPUT_CHECKS_DP_008;\nDROP TABLE PERF_SCORES_DP_008;",
+      "setup": "CREATE TABLE OUTPUT_CHECKS_DP_008 (test_id VARCHAR2(20), format_compliance VARCHAR2(10)) TABLESPACE TEST002;\nINSERT INTO OUTPUT_CHECKS_DP_008 VALUES ('DP', 'true');\nCOMMIT;\nCREATE TABLE PERF_SCORES_DP_008 (dimension VARCHAR2(20), score NUMBER) TABLESPACE TEST002;\nINSERT INTO PERF_SCORES_DP_008 VALUES ('overall', 85);\nCOMMIT;\nCREATE TABLE SKILL_OUTPUT_DP_008 (output_text CLOB);\n",
+      "rollback": "DROP TABLE OUTPUT_CHECKS_DP_008;\nDROP TABLE PERF_SCORES_DP_008;\nDROP TABLE SKILL_OUTPUT_DP_008;",
       "fixture": ""
-    }
+    },
+    "evidence": "Run A 必须将 db-oracle 技能对用例 DP-008 的**实际输出**（原始文本）完整写入 SKILL_OUTPUT_DP_008 表（INSERT INTO SKILL_OUTPUT_DP_008 VALUES (:output_text)），并在工单评论中留存该原始输出供人工核对。禁止用占位/模拟数据替代真实输出。"
   }
 ]
