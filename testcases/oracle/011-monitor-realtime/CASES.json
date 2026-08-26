@@ -1,0 +1,1390 @@
+[
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-001",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "connection",
+    "metric": "会话数/长空闲会话",
+    "user_input": "查找172.20.23.95 Oracle数据库的当前会话数及长空闲会话",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "description": "skill 应输出当前会话数、会话使用率、长空闲会话数，并按会话使用率阈值给出判断",
+      "judgment_rule": "会话使用率<60%→正常；>=60%→提示用户"
+    },
+    "assertions": [
+      {
+        "name": "会话数正确性",
+        "ground_truth_sql": "SELECT COUNT(*) AS current_sessions FROM v$session",
+        "logic": "skill 报告的 current_sessions 与真实 v$session 计数一致"
+      },
+      {
+        "name": "使用率计算正确性",
+        "ground_truth_sql": "SELECT ROUND(COUNT(*)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) AS usage_pct FROM v$session",
+        "logic": "skill 报告的 sessions_usage_pct 与真实计算一致"
+      },
+      {
+        "name": "阈值判断正确性",
+        "ground_truth_sql": "SELECT ROUND(COUNT(*)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) AS usage_pct FROM v$session",
+        "logic": "skill 的 judgment 必须等于 judgment_rule 应用于实际 usage_pct 的结果"
+      },
+      {
+        "name": "长空闲会话正确性",
+        "ground_truth_sql": "SELECT COUNT(*) AS idle_count FROM v$session WHERE status='INACTIVE' AND username IS NOT NULL AND last_call_et > 1800",
+        "logic": "skill 报告的长空闲会话数与真实一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 按需构造会话/空闲会话后验证；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-002",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "cpu",
+    "metric": "CPU 使用率",
+    "user_input": "查看172.20.23.95 Oracle数据库的CPU使用率",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "description": "skill 应输出 Host CPU Utilization、Database CPU Time Ratio、OS Load，并按阈值给出判断",
+      "judgment_rule": "Host CPU<60%→正常；60-85%→警告；>85%→严重"
+    },
+    "assertions": [
+      {
+        "name": "CPU 指标正确性",
+        "ground_truth_sql": "SELECT metric_name,value FROM v$sysmetric WHERE metric_name IN ('Host CPU Utilization (%)','Database CPU Time Ratio','OS Load') AND group_id=2",
+        "logic": "skill 报告的 host_cpu_util/db_cpu_ratio/os_load 与 v$sysmetric 真实值一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "CPU 状态不可强制；执行 agent 读取实际值验证指标正确性与判断逻辑。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-003",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "slow_query",
+    "metric": "慢查询",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query",
+      "slow_threshold_sec": 5,
+      "top_n": 10
+    },
+    "expected_output": {
+      "description": "skill 应输出当前慢查询数、历史 TOP N，并按阈值给出判断",
+      "judgment_rule": "当前慢查询数<5→正常；5-20→警告；>20→严重"
+    },
+    "assertions": [
+      {
+        "name": "慢查询数正确性",
+        "ground_truth_sql": "SELECT COUNT(*) AS slow_count FROM v$session WHERE status='ACTIVE' AND type!='BACKGROUND' AND last_call_et>5 AND username IS NOT NULL",
+        "logic": "skill 报告的当前慢查询数与真实一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 按需发起长运行 SQL 后验证；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-004",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "all",
+    "metric": "全面实时巡检",
+    "user_input": "对172.20.23.95 Oracle数据库做全面实时巡检",
+    "params": {
+      "instance_host": "oracle-rac_node01"
+    },
+    "expected_output": {
+      "description": "skill 应输出全部 5 段：实时指标概览/CPU 维度/连接数维度/慢查询维度/阈值对照与建议"
+    },
+    "assertions": [
+      {
+        "name": "全量输出完整性",
+        "ground_truth_sql": "SELECT 1 AS check_result FROM dual",
+        "logic": "skill 输出包含全部 5 段结构（概览/CPU/连接/慢查询/阈值对照）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "全量采集，验证 5 段输出结构完整性。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-005",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "连接失败处理",
+    "user_input": "查看一个不存在的Oracle数据库的实时指标",
+    "params": {
+      "instance_host": "nonexistent-host-99999",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "description": "实例连接失败时，skill 应返回明确的连接错误信息，不输出数据库原始异常堆栈"
+    },
+    "assertions": [
+      {
+        "name": "连接失败错误",
+        "ground_truth_sql": "SELECT 1 AS check_result FROM dual",
+        "logic": "skill 返回明确的连接失败错误信息，不暴露底层异常栈"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用不存在的 host 触发连接失败。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-006",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "all",
+    "metric": "权限不足处理",
+    "user_input": "用低权限账号查看172.20.23.95 Oracle数据库的实时指标",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "all"
+    },
+    "expected_output": {
+      "description": "权限不足时，skill 对无法访问的查询标记'权限不足，跳过该项'，不中断整体输出"
+    },
+    "assertions": [
+      {
+        "name": "权限不足处理",
+        "ground_truth_sql": "SELECT 1 AS check_result FROM dual",
+        "logic": "skill 对权限不足的查询标记'权限不足，跳过该项'，不中断整体"
+      }
+    ],
+    "precondition": "需要低权限账号；当前环境无现成低权限账号，执行 agent 需自行创建（若无法创建则跳过并记录）",
+    "constructible_in_current_env": false,
+    "execution_note": "执行 agent 需先创建低权限账号（环境构造），再以该账号执行；无法创建则跳过并记录原因。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-007",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "slow_threshold_sec=0",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询（阈值设为0秒）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query",
+      "slow_threshold_sec": 0
+    },
+    "expected_output": {
+      "description": "阈值=0 时所有 ACTIVE 会话均视为慢查询，skill 应正常输出并给出判断"
+    },
+    "assertions": [
+      {
+        "name": "阈值0边界",
+        "ground_truth_sql": "SELECT COUNT(*) AS slow_count FROM v$session WHERE status='ACTIVE' AND type!='BACKGROUND' AND last_call_et>0 AND username IS NOT NULL",
+        "logic": "skill 在 slow_threshold_sec=0 时按 0 阈值统计慢查询，与真实一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "参数边界：阈值下限 0。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-008",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "top_n=1",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询（只看TOP 1）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query",
+      "top_n": 1
+    },
+    "expected_output": {
+      "description": "历史慢查询列表最多返回 1 条"
+    },
+    "assertions": [
+      {
+        "name": "top_n=1边界",
+        "ground_truth_sql": "SELECT 1 AS check_result FROM dual",
+        "logic": "skill 的历史慢查询列表最多返回 1 条"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "参数边界：top_n 下限 1。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-009",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "time_range_hours=24",
+    "user_input": "查看172.20.23.95 Oracle数据库最近24小时的CPU趋势",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu",
+      "time_range_hours": 24
+    },
+    "expected_output": {
+      "description": "CPU 趋势数据覆盖最近 24 小时"
+    },
+    "assertions": [
+      {
+        "name": "time_range边界",
+        "ground_truth_sql": "SELECT COUNT(*) AS trend_count FROM v$sysmetric_history WHERE metric_name='Host CPU Utilization (%)' AND begin_time >= SYSDATE - NUMTODSINTERVAL(24,'HOUR')",
+        "logic": "skill 的 CPU 趋势数据覆盖最近 24 小时，与真实一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "参数边界：time_range_hours=24。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-010",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization",
+    "target_state": "normal",
+    "judgment_rule": "<60%→正常；60%-85%→警告；>85%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Host CPU Utilization（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 Host CPU Utilization 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "Host CPU Utilization-正常判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Host CPU Utilization (%)' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-011",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization",
+    "target_state": "warning",
+    "judgment_rule": "<60%→正常；60%-85%→警告；>85%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Host CPU Utilization（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 Host CPU Utilization 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "Host CPU Utilization-警告判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Host CPU Utilization (%)' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-012",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization",
+    "target_state": "severe",
+    "judgment_rule": "<60%→正常；60%-85%→警告；>85%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Host CPU Utilization（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 Host CPU Utilization 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "Host CPU Utilization-严重判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Host CPU Utilization (%)' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-013",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "Database CPU Time Ratio",
+    "target_state": "normal",
+    "judgment_rule": "<50%→正常；50%-75%→警告；>75%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Database CPU Time Ratio（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 Database CPU Time Ratio 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "Database CPU Time Ratio-正常判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Database CPU Time Ratio' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-014",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Database CPU Time Ratio",
+    "target_state": "warning",
+    "judgment_rule": "<50%→正常；50%-75%→警告；>75%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Database CPU Time Ratio（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 Database CPU Time Ratio 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "Database CPU Time Ratio-警告判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Database CPU Time Ratio' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-015",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Database CPU Time Ratio",
+    "target_state": "severe",
+    "judgment_rule": "<50%→正常；50%-75%→警告；>75%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Database CPU Time Ratio（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 Database CPU Time Ratio 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "Database CPU Time Ratio-严重判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='Database CPU Time Ratio' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-016",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "OS Load per core",
+    "target_state": "normal",
+    "judgment_rule": "<1.0→正常；1.0-2.0→警告；>2.0→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的OS Load per core（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 OS Load per core 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "OS Load per core-正常判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='OS Load' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-017",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "OS Load per core",
+    "target_state": "warning",
+    "judgment_rule": "<1.0→正常；1.0-2.0→警告；>2.0→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的OS Load per core（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 OS Load per core 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "OS Load per core-警告判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='OS Load' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-018",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "OS Load per core",
+    "target_state": "severe",
+    "judgment_rule": "<1.0→正常；1.0-2.0→警告；>2.0→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的OS Load per core（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 OS Load per core 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "OS Load per core-严重判断",
+        "ground_truth_sql": "SELECT value FROM v$sysmetric WHERE metric_name='OS Load' AND group_id=2",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-019",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "Hard Parse 占比",
+    "target_state": "normal",
+    "judgment_rule": "<5%→正常；5%-10%→警告；>10%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Hard Parse 占比（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 Hard Parse 占比 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "Hard Parse 占比-正常判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-020",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Hard Parse 占比",
+    "target_state": "warning",
+    "judgment_rule": "<5%→正常；5%-10%→警告；>10%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Hard Parse 占比（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 Hard Parse 占比 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "Hard Parse 占比-警告判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-021",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Hard Parse 占比",
+    "target_state": "severe",
+    "judgment_rule": "<5%→正常；5%-10%→警告；>10%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的Hard Parse 占比（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 Hard Parse 占比 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "Hard Parse 占比-严重判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-022",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "connection",
+    "metric": "会话使用率",
+    "target_state": "normal",
+    "judgment_rule": "<60%→正常；60%-80%→警告；>80%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的会话使用率（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 会话使用率 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "会话使用率-正常判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(*)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 会话使用率 进入 正常 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-023",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "会话使用率",
+    "target_state": "warning",
+    "judgment_rule": "<60%→正常；60%-80%→警告；>80%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的会话使用率（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 会话使用率 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "会话使用率-警告判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(*)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 会话使用率 进入 警告 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-024",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "会话使用率",
+    "target_state": "severe",
+    "judgment_rule": "<60%→正常；60%-80%→警告；>80%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的会话使用率（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 会话使用率 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "会话使用率-严重判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(*)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 会话使用率 进入 严重 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-025",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "connection",
+    "metric": "ACTIVE 会话占比",
+    "target_state": "normal",
+    "judgment_rule": "<20%→正常；20%-40%→警告；>40%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的ACTIVE 会话占比（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 ACTIVE 会话占比 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "ACTIVE 会话占比-正常判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(CASE WHEN status='ACTIVE' THEN 1 END)*100.0/COUNT(*),2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 ACTIVE 会话占比 进入 正常 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-026",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "ACTIVE 会话占比",
+    "target_state": "warning",
+    "judgment_rule": "<20%→正常；20%-40%→警告；>40%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的ACTIVE 会话占比（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 ACTIVE 会话占比 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "ACTIVE 会话占比-警告判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(CASE WHEN status='ACTIVE' THEN 1 END)*100.0/COUNT(*),2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 ACTIVE 会话占比 进入 警告 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-027",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "ACTIVE 会话占比",
+    "target_state": "severe",
+    "judgment_rule": "<20%→正常；20%-40%→警告；>40%→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的ACTIVE 会话占比（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 ACTIVE 会话占比 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "ACTIVE 会话占比-严重判断",
+        "ground_truth_sql": "SELECT ROUND(COUNT(CASE WHEN status='ACTIVE' THEN 1 END)*100.0/COUNT(*),2) FROM v$session",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 ACTIVE 会话占比 进入 严重 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-028",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "connection",
+    "metric": "单用户连接数",
+    "target_state": "normal",
+    "judgment_rule": "<100→正常；100-200→警告；>200→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单用户连接数（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 单用户连接数 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "单用户连接数-正常判断",
+        "ground_truth_sql": "SELECT MAX(cnt) FROM (SELECT username, COUNT(*) cnt FROM v$session WHERE username IS NOT NULL GROUP BY username)",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 单用户连接数 进入 正常 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-029",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "单用户连接数",
+    "target_state": "warning",
+    "judgment_rule": "<100→正常；100-200→警告；>200→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单用户连接数（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 单用户连接数 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "单用户连接数-警告判断",
+        "ground_truth_sql": "SELECT MAX(cnt) FROM (SELECT username, COUNT(*) cnt FROM v$session WHERE username IS NOT NULL GROUP BY username)",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 单用户连接数 进入 警告 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-030",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "单用户连接数",
+    "target_state": "severe",
+    "judgment_rule": "<100→正常；100-200→警告；>200→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单用户连接数（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 单用户连接数 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "单用户连接数-严重判断",
+        "ground_truth_sql": "SELECT MAX(cnt) FROM (SELECT username, COUNT(*) cnt FROM v$session WHERE username IS NOT NULL GROUP BY username)",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 单用户连接数 进入 严重 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-031",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "connection",
+    "metric": "空闲>30min 会话数",
+    "target_state": "normal",
+    "judgment_rule": "<10→正常；10-50→警告；>50→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的空闲>30min 会话数（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 空闲>30min 会话数 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "空闲>30min 会话数-正常判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='INACTIVE' AND username IS NOT NULL AND last_call_et>1800",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 空闲>30min 会话数 进入 正常 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-032",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "空闲>30min 会话数",
+    "target_state": "warning",
+    "judgment_rule": "<10→正常；10-50→警告；>50→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的空闲>30min 会话数（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 空闲>30min 会话数 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "空闲>30min 会话数-警告判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='INACTIVE' AND username IS NOT NULL AND last_call_et>1800",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 空闲>30min 会话数 进入 警告 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-033",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "connection",
+    "metric": "空闲>30min 会话数",
+    "target_state": "severe",
+    "judgment_rule": "<10→正常；10-50→警告；>50→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的空闲>30min 会话数（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "connection"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 空闲>30min 会话数 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "空闲>30min 会话数-严重判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='INACTIVE' AND username IS NOT NULL AND last_call_et>1800",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 空闲>30min 会话数 进入 严重 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-034",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "当前慢查询数",
+    "target_state": "normal",
+    "judgment_rule": "<5→正常；5-20→警告；>20→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的当前慢查询数（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 当前慢查询数 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "当前慢查询数-正常判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND type!='BACKGROUND' AND last_call_et>5 AND username IS NOT NULL",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 当前慢查询数 进入 正常 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-035",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "当前慢查询数",
+    "target_state": "warning",
+    "judgment_rule": "<5→正常；5-20→警告；>20→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的当前慢查询数（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 当前慢查询数 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "当前慢查询数-警告判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND type!='BACKGROUND' AND last_call_et>5 AND username IS NOT NULL",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 当前慢查询数 进入 警告 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-036",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "当前慢查询数",
+    "target_state": "severe",
+    "judgment_rule": "<5→正常；5-20→警告；>20→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的当前慢查询数（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 当前慢查询数 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "当前慢查询数-严重判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND type!='BACKGROUND' AND last_call_et>5 AND username IS NOT NULL",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造会话使 当前慢查询数 进入 严重 区间后验证目标分支；构造方式由执行 agent 决定。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-037",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "平均执行时间",
+    "target_state": "normal",
+    "judgment_rule": "<5s→正常；5s-30s→警告；>30s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的平均执行时间（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 平均执行时间 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "平均执行时间-正常判断",
+        "ground_truth_sql": "SELECT ROUND(AVG(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-038",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "平均执行时间",
+    "target_state": "warning",
+    "judgment_rule": "<5s→正常；5s-30s→警告；>30s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的平均执行时间（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 平均执行时间 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "平均执行时间-警告判断",
+        "ground_truth_sql": "SELECT ROUND(AVG(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-039",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "平均执行时间",
+    "target_state": "severe",
+    "judgment_rule": "<5s→正常；5s-30s→警告；>30s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的平均执行时间（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 平均执行时间 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "平均执行时间-严重判断",
+        "ground_truth_sql": "SELECT ROUND(AVG(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-040",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "单 SQL 最大执行时间",
+    "target_state": "normal",
+    "judgment_rule": "<30s→正常；30s-300s→警告；>300s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单 SQL 最大执行时间（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 单 SQL 最大执行时间 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "单 SQL 最大执行时间-正常判断",
+        "ground_truth_sql": "SELECT ROUND(MAX(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-041",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "单 SQL 最大执行时间",
+    "target_state": "warning",
+    "judgment_rule": "<30s→正常；30s-300s→警告；>300s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单 SQL 最大执行时间（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 单 SQL 最大执行时间 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "单 SQL 最大执行时间-警告判断",
+        "ground_truth_sql": "SELECT ROUND(MAX(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-042",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "单 SQL 最大执行时间",
+    "target_state": "severe",
+    "judgment_rule": "<30s→正常；30s-300s→警告；>300s→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的单 SQL 最大执行时间（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 单 SQL 最大执行时间 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "单 SQL 最大执行时间-严重判断",
+        "ground_truth_sql": "SELECT ROUND(MAX(elapsed_time/GREATEST(executions,1))/1000000,2) FROM v$sqlstats WHERE executions>0",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-043",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "慢查询趋势",
+    "target_state": "normal",
+    "judgment_rule": "平稳→正常；缓慢上升→警告；急剧上升→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询趋势（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 慢查询趋势 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "慢查询趋势-正常判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-044",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "慢查询趋势",
+    "target_state": "warning",
+    "judgment_rule": "平稳→正常；缓慢上升→警告；急剧上升→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询趋势（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 慢查询趋势 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "慢查询趋势-警告判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-045",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "慢查询趋势",
+    "target_state": "severe",
+    "judgment_rule": "平稳→正常；缓慢上升→警告；急剧上升→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的慢查询趋势（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 慢查询趋势 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "慢查询趋势-严重判断",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-046",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "slow_query",
+    "metric": "DB CPU 等待超5s会话",
+    "target_state": "normal",
+    "judgment_rule": "<3→正常；3-10→警告；>10→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的DB CPU 等待超5s会话（正常状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当 DB CPU 等待超5s会话 处于 正常 状态时，skill 应输出'正常'判断"
+    },
+    "assertions": [
+      {
+        "name": "DB CPU 等待超5s会话-正常判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND event LIKE '%CPU%' AND seconds_in_wait>5",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-047",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "DB CPU 等待超5s会话",
+    "target_state": "warning",
+    "judgment_rule": "<3→正常；3-10→警告；>10→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的DB CPU 等待超5s会话（警告状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当 DB CPU 等待超5s会话 处于 警告 状态时，skill 应输出'警告'判断"
+    },
+    "assertions": [
+      {
+        "name": "DB CPU 等待超5s会话-警告判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND event LIKE '%CPU%' AND seconds_in_wait>5",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  },
+  {
+    "skill": "db-oracle-monitor-realtime",
+    "skill_version": "v1.0.0",
+    "case_id": "MR-048",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "slow_query",
+    "metric": "DB CPU 等待超5s会话",
+    "target_state": "severe",
+    "judgment_rule": "<3→正常；3-10→警告；>10→严重",
+    "user_input": "查看172.20.23.95 Oracle数据库的DB CPU 等待超5s会话（严重状态）",
+    "params": {
+      "instance_host": "oracle-rac_node01",
+      "metric_type": "slow_query"
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当 DB CPU 等待超5s会话 处于 严重 状态时，skill 应输出'严重'判断"
+    },
+    "assertions": [
+      {
+        "name": "DB CPU 等待超5s会话-严重判断",
+        "ground_truth_sql": "SELECT COUNT(*) FROM v$session WHERE status='ACTIVE' AND event LIKE '%CPU%' AND seconds_in_wait>5",
+        "logic": "skill 报告的 judgment 必须等于 judgment_rule 应用于实际采集 value 的结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态。执行 agent 读取实际 value，若落入目标区间则验证该分支；否则验证判断逻辑正确性并记录实际分支。该用例在真实环境（存在该状态）时自动覆盖对应输出分支。"
+  }
+]
