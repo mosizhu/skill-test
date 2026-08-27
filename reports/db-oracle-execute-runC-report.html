@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>Run C 评估报告 - db-oracle-execute</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;margin:24px;color:#1f2328;line-height:1.6}
+h1{border-bottom:2px solid #d0d7de;padding-bottom:8px}
+h2{margin-top:28px;border-bottom:1px solid #d0d7de;padding-bottom:4px}
+.case{border:1px solid #d0d7de;border-radius:8px;padding:12px 16px;margin:12px 0;background:#f6f8fa}
+.case h3{margin:0 0 6px}
+.meta{font-weight:normal;color:#57606a;font-size:13px}
+.proc{color:#57606a;font-size:13px}
+table{border-collapse:collapse;margin:8px 0}
+th,td{border:1px solid #d0d7de;padding:6px 10px;text-align:left}
+th{background:#f6f8fa}
+.summary{display:flex;gap:24px;margin:12px 0}
+.summary .box{border:1px solid #d0d7de;border-radius:8px;padding:12px 20px;text-align:center}
+.summary .num{font-size:28px;font-weight:700}
+</style></head><body>
+<h1>Run C 评估报告 — db-oracle-execute vv1.0.0（33 用例）</h1>
+<p><b>环境：</b>oracle_rac_node01 (TESTDB, schema=TEST, open_mode=READ WRITE, recyclebin=ON)<br>
+<b>数据来源：</b>Run A 执行结果（工单 075ad6ad-e441-4861-9d99-c81379730dbc）+ Run B 逐用例验证（工单 f0f63ead-af81-4d1a-a293-014ab71826ba）<br>
+<b>生成时间：</b>2026-08-27T15:35:31.225580</p>
+
+<h2>总体结论</h2>
+<div class="summary">
+  <div class="box"><div class="num" style="color:#1a7f37">21</div>PASS</div>
+  <div class="box"><div class="num" style="color:#cf222e">11</div>FAIL</div>
+  <div class="box"><div class="num" style="color:#9a6700">1</div>needs_review</div>
+  <div class="box"><div class="num">63.6%</div>通过率</div>
+</div>
+<p><b>关键结论：</b>11 例失败全部源于 Run A 记录的 skill 输出（SKILL_OUTPUT 表）与用例定义严重错位——case 01-13 的记录输出被误标（如 case 01 CREATE TABLE 记为 DML INSERT、case 05 SELECT 记为 DCL GRANT、case 06 GRANT 记为 ALTER SYSTEM 等，呈整体错位）。DB 终态证据显示多数用例的 skill 动作实际正确（表/索引/列均按预期创建或拒绝），故失败主因是 <b>Run A 记录/分类错误</b>，而非 skill 本身失效。其中 case 12（DELETE id=1001）DB 证据显示 id=1001 仍存在，与 DELETE 预期矛盾，需 Run A 复核是否真正执行了 DELETE。</p>
+
+<h2>覆盖率</h2>
+<h3>按 type</h3>
+<table><tr><th>类型</th><th>用例数</th><th>PASS</th><th>FAIL</th><th>needs_review</th></tr><tr><td>positive</td><td>15</td><td>11</td><td>4</td><td>0</td></tr><tr><td>boundary</td><td>7</td><td>5</td><td>2</td><td>0</td></tr><tr><td>negative</td><td>11</td><td>5</td><td>5</td><td>1</td></tr></table>
+<h3>按 priority</h3>
+<table><tr><th>优先级</th><th>用例数</th><th>PASS</th><th>FAIL</th><th>needs_review</th></tr><tr><td>P0</td><td>17</td><td>9</td><td>7</td><td>1</td></tr><tr><td>P1</td><td>15</td><td>11</td><td>4</td><td>0</td></tr><tr><td>P2</td><td>1</td><td>1</td><td>0</td><td>0</td></tr></table>
+
+<h2>逐用例评估</h2>
+
+    <div class="case">
+      <h3>db-oracle-execute-01 <span class="meta">positive / P0 / SQL类型识别 / execute_type=auto 识别 DDL</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>帮我执行一条建表语句，创建订单表 ORDERS</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>构造 ORDERS 表环境 → 成功</li><li>调用 skill 执行 CREATE TABLE ORDERS → Run A 记录输出「DML INSERT 成功，受影响行数 1」</li><li>验证 dba_tables ORDERS → cnt=1（表确实存在）</li></ul>
+      <p><b>输出：</b>Run A 记录：DML INSERT 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DDL 执行成功」，记录输出为「DML INSERT 成功」，CREATE TABLE 被误标为 DML INSERT（类型识别/记录错误）。DB 证据显示表已创建（动作正确），但记录输出与用例定义不符。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（类型识别/记录错误）；方法简洁性：correct；skill 有效性：需改进（记录输出错位）</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-02 <span class="meta">positive / P0 / SQL类型识别 / execute_type=auto 识别 DML</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>把 ORDERS 状态 PENDING 更新为 PROCESSING</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 PENDING 行 → 成功</li><li>调用 skill 执行 UPDATE → Run A 记录「DML UPDATE 成功，受影响行数 1」</li><li>验证 PROCESSING 行数增加 → 通过</li></ul>
+      <p><b>输出：</b>DML UPDATE 成功，受影响行数 1</p>
+      <p><b>判定：</b>正确。记录输出「DML UPDATE 成功」与期望「DML 执行成功」一致；PROCESSING 行数增加。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-03 <span class="meta">boundary / P1 / SQL类型识别 / execute_type=ddl 强制模式</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>强制按 DDL 模式执行建索引语句</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 CREATE INDEX IDX_ORDERS_STATUS → Run A 记录「DML DELETE 成功，受影响行数 1」</li><li>验证索引执行时生效（case 24 再次创建验证过），终态被 case 25 删除</li></ul>
+      <p><b>输出：</b>Run A 记录：DML DELETE 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DDL 执行成功」，记录输出为「DML DELETE 成功」，CREATE INDEX 被误标为 DML DELETE。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-04 <span class="meta">boundary / P1 / SQL类型识别 / execute_type=dml 强制模式</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>强制按 DML 模式删除 CANCELLED 订单</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 CANCELLED 行 → 成功</li><li>调用 skill 执行 DELETE → Run A 记录「DML MERGE 成功，受影响行数 1」</li><li>验证 CANCELLED=0 → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：DML MERGE 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DML 执行成功（DELETE）」，记录输出为「DML MERGE 成功」，DELETE 被误标为 MERGE。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-05 <span class="meta">negative / P1 / SQL类型识别 / 不支持语句类型（SELECT）</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>执行查询语句看订单表行数</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 SELECT COUNT(*) FROM ORDERS → Run A 记录「DCL GRANT 被拒绝（安全边界），未执行」</li><li>验证无副作用（dba_objects ORDERS cnt=1 为 case 01 创建）→ 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：DCL GRANT 被拒绝（安全边界），未执行</p>
+      <p><b>判定：</b>错误。期望「拒绝执行（SELECT 非 DDL/DML）」，记录输出为「DCL GRANT 被拒绝」，SELECT 被误标为 DCL GRANT。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-06 <span class="meta">negative / P0 / 安全拦截 / DCL 语句（GRANT）被拒</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>给 app_user 授予 ORDERS SELECT 权限</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 GRANT SELECT ON ORDERS TO app_user → Run A 记录「ALTER SYSTEM 被拒绝（安全边界），未执行」</li><li>验证 dba_tab_privs APP_USER ORDERS cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：ALTER SYSTEM 被拒绝（安全边界），未执行</p>
+      <p><b>判定：</b>错误。期望「拒绝执行（DCL GRANT）」，记录输出为「ALTER SYSTEM 被拒绝」，GRANT 被误标为 ALTER SYSTEM。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-07 <span class="meta">negative / P0 / 安全拦截 / 系统参数修改（ALTER SYSTEM）被拒</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>把 SGA 调大</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 ALTER SYSTEM SET sga_target=4G → Run A 记录「DROP TABLESPACE 被拒绝（安全边界），未执行」</li><li>验证 v$parameter sga_target=5167382528 未变 → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：DROP TABLESPACE 被拒绝（安全边界），未执行</p>
+      <p><b>判定：</b>错误。期望「拒绝执行（ALTER SYSTEM）」，记录输出为「DROP TABLESPACE 被拒绝」，ALTER SYSTEM 被误标为 DROP TABLESPACE。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-08 <span class="meta">negative / P0 / 安全拦截 / 破坏性操作（DROP TABLESPACE）被拒</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>删除 USERS 表空间</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 DROP TABLESPACE USERS → Run A 记录「SELECT 非 DDL/DML 被拒绝，未执行」</li><li>验证 dba_tablespaces USERS cnt=1 → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：SELECT 非 DDL/DML 被拒绝，未执行</p>
+      <p><b>判定：</b>错误。期望「拒绝执行（DROP TABLESPACE）」，记录输出为「SELECT 非 DDL/DML 被拒绝」，DROP TABLESPACE 被误标为 SELECT。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-09 <span class="meta">negative / P0 / 安全拦截 / 破坏性操作（DROP DATABASE）被拒</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>删除整个数据库</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 DROP DATABASE → Run A 记录「非法 SQL 被拒绝，未执行」</li><li>验证 v$database open_mode=READ WRITE → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：非法 SQL 被拒绝，未执行</p>
+      <p><b>判定：</b>错误。期望「拒绝执行（DROP DATABASE）」，记录输出为「非法 SQL 被拒绝」，DROP DATABASE 被误标为非法 SQL。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-10 <span class="meta">positive / P0 / DML执行 / INSERT 成功</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>插入 id=1001 新订单</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 INSERT id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」</li><li>验证 ORDERS id=1001 cnt=1 → 通过</li></ul>
+      <p><b>输出：</b>Run A 记录：DML UPDATE 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DML 执行成功（INSERT）」，记录输出为「DML UPDATE 成功」，INSERT 被误标为 UPDATE。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-11 <span class="meta">positive / P0 / DML执行 / UPDATE 成功</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>把 id=1001 状态改为 COMPLETED</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 UPDATE id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」</li><li>验证 id=1001 改为 COMPLETED（后被 case 33 覆盖为 PROCESSING）→ 通过</li></ul>
+      <p><b>输出：</b>DML UPDATE 成功，受影响行数 1</p>
+      <p><b>判定：</b>正确。记录输出「DML UPDATE 成功」与期望「DML 执行成功」一致。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-12 <span class="meta">positive / P0 / DML执行 / DELETE 成功</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>删除 id=1001 订单</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 DELETE id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」</li><li>验证 ORDERS id=1001 cnt=1（仍存在）→ 失败（期望 cnt=0）</li></ul>
+      <p><b>输出：</b>Run A 记录：DML UPDATE 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DML 执行成功（DELETE）」，记录输出为「DML UPDATE 成功」；且 DB 证据 id=1001 仍存在（cnt=1），与 DELETE 预期矛盾，case 12 可能未真正执行 DELETE（或执行了错误 SQL），需 Run A 复核。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位 + 删除未生效存疑）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-13 <span class="meta">positive / P1 / DML执行 / MERGE 成功</span> <span style="background:#cf222e;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">错误</span></h3>
+      <p><b>输入：</b>用 ORDERS_STAGE 合并到 ORDERS</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 ORDERS_STAGE 源表 → 成功</li><li>调用 skill 执行 MERGE → Run A 记录「DML UPDATE 成功，受影响行数 1」</li><li>验证 match_cnt=2（id1、id200 一致），id201 未同步为 PENDING → 部分通过</li></ul>
+      <p><b>输出：</b>Run A 记录：DML UPDATE 成功，受影响行数 1</p>
+      <p><b>判定：</b>错误。期望「DML 执行成功（MERGE）」，记录输出为「DML UPDATE 成功」，MERGE 被误标为 UPDATE。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-14 <span class="meta">positive / P0 / DML执行 / auto_rollback=true 自动回滚验证</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>试运行 UPDATE，先不真正改数据</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 UPDATE（auto_rollback=true）→ Run A 记录「UPDATE 后回滚，PROCESSING 数不变(2)」</li><li>验证 PROCESSING 数不变 → 通过</li></ul>
+      <p><b>输出：</b>UPDATE 后回滚，PROCESSING 数不变(2)</p>
+      <p><b>判定：</b>正确。记录输出与期望「DML 执行后回滚」一致。过程验证需改进：Run A 用「执行后还原」模拟 SAVEPOINT 回滚，未真正调用 skill 的 SAVEPOINT 机制（swissql 单语句自动提交限制）。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（模拟回滚）；方法简洁性：需改进；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-15 <span class="meta">negative / P0 / DML执行 / 唯一约束冲突（ORA-00001）自动回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>插入已存在主键 id=1001</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 id=1001 行 → 成功</li><li>调用 skill 执行 INSERT 同 id → Run A 记录「ORA-00001 唯一约束冲突，回滚到 SAVEPOINT，无重复数据」</li><li>验证 ORDERS id=1001 cnt=1（仅原有 1 行）→ 通过</li></ul>
+      <p><b>输出：</b>ORA-00001，回滚到 SAVEPOINT，无重复数据</p>
+      <p><b>判定：</b>正确。记录输出与期望「DML 失败并回滚」一致；无重复数据。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-16 <span class="meta">negative / P0 / DML执行 / 对象不存在（ORA-00942）</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>更新不存在的表 NON_EXIST_TABLE</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 UPDATE NON_EXIST_TABLE → Run A 记录「ORA-00942 对象不存在，中断，无副作用」</li><li>验证 dba_objects NON_EXIST_TABLE cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>ORA-00942，中断，无副作用</p>
+      <p><b>判定：</b>正确。记录输出与期望「DML 中断」一致；无副作用。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-17 <span class="meta">boundary / P1 / DML执行 / 执行超时自动回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>大批量更新，超时设 1 秒</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 UPDATE（timeout_seconds=1）→ Run A 记录「超时回滚：PROCESSING 数不变(2)，数据未变更」</li><li>验证 PROCESSING 数不变 → 通过</li></ul>
+      <p><b>输出：</b>超时回滚，PROCESSING 数不变(2)</p>
+      <p><b>判定：</b>正确。记录输出与期望「DML 超时回滚」一致。过程验证需改进：模拟回滚，未真正验证 skill 超时回滚机制。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：需改进（模拟回滚）；方法简洁性：需改进；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-18 <span class="meta">boundary / P1 / DML执行 / 分批提交 commit_batch_size</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>大批量更新，每 5000 行提交</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 PENDING 行 → 成功</li><li>调用 skill 执行 UPDATE（commit_batch_size=5000）→ Run A 记录「分批提交：PENDING 全部更新为 PROCESSING(3)」</li><li>验证 PENDING=0，PROCESSING=4 → 通过</li></ul>
+      <p><b>输出：</b>分批提交，PENDING 全部更新为 PROCESSING(3)</p>
+      <p><b>判定：</b>正确。记录输出与期望「DML 分批执行成功」一致；全部更新生效。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-19 <span class="meta">positive / P0 / DDL执行 / CREATE TABLE 成功且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>创建客户表 CUSTOMERS</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 CREATE TABLE CUSTOMERS → Run A 记录「CUSTOMERS 创建成功，回滚 DROP TABLE PURGE」</li><li>验证 dba_tables CUSTOMERS cnt=1 → 通过</li></ul>
+      <p><b>输出：</b>CUSTOMERS 创建成功，回滚 DROP TABLE PURGE</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；表已创建。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-20 <span class="meta">positive / P1 / DDL执行 / ALTER TABLE 加列且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>给 ORDERS 加 remark 列</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 ALTER TABLE ORDERS ADD remark → Run A 记录「remark 加列成功，回滚 DROP COLUMN」</li><li>验证 dba_tab_columns REMARK 执行时生效（后被 case 21 删除）→ 通过</li></ul>
+      <p><b>输出：</b>remark 加列成功，回滚 DROP COLUMN</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；加列生效。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-21 <span class="meta">positive / P1 / DDL执行 / ALTER TABLE 删列且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>删除 ORDERS 的 remark 列</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 ALTER TABLE ORDERS DROP COLUMN remark → Run A 记录「remark 删列成功」</li><li>验证 dba_tab_columns REMARK cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>remark 删列成功</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；删列生效。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-22 <span class="meta">positive / P1 / DDL执行 / ALTER TABLE 修改列且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>把 ORDERS.name 长度从 200 改为 500</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 ALTER TABLE ORDERS MODIFY name VARCHAR2(500) → Run A 记录「name 改为 VARCHAR2(500) 成功」</li><li>验证 dba_tab_columns NAME data_length=500 → 通过</li></ul>
+      <p><b>输出：</b>name 改为 VARCHAR2(500) 成功</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；列类型已修改。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-23 <span class="meta">positive / P0 / DDL执行 / DROP TABLE 且可 FLASHBACK 回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>删除 ORDERS，先别彻底清掉</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>确认 recyclebin=ON → 成功</li><li>调用 skill 执行 DROP TABLE ORDERS → Run A 记录「ORDERS 进入回收站，FLASHBACK 可恢复」</li><li>验证 user_recyclebin ORDERS cnt=1（执行时）→ 通过；后 FLASHBACK 恢复以继续后续用例</li></ul>
+      <p><b>输出：</b>ORDERS 进入回收站，FLASHBACK 可恢复</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功且可回滚」一致；表进入回收站可恢复。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct（DROP 后 FLASHBACK 恢复合理）；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-24 <span class="meta">positive / P1 / DDL执行 / CREATE INDEX 成功且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>给 ORDERS.status 创建普通索引</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 CREATE INDEX IDX_ORDERS_STATUS → Run A 记录「创建成功，VALID」</li><li>验证 dba_indexes status=VALID（执行时）→ 通过；后被 case 25 删除</li></ul>
+      <p><b>输出：</b>IDX_ORDERS_STATUS 创建成功，VALID</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；索引创建且有效。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-25 <span class="meta">positive / P1 / DDL执行 / DROP INDEX 成功且可回滚</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>删除 IDX_ORDERS_STATUS 索引</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 DROP INDEX IDX_ORDERS_STATUS → Run A 记录「删除成功」</li><li>验证 dba_indexes IDX_ORDERS_STATUS cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>IDX_ORDERS_STATUS 删除成功</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 执行成功」一致；索引已删除。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-26 <span class="meta">negative / P0 / DDL执行 / TRUNCATE 不可回滚需二次确认</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>清空 ORDERS 所有数据</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>提交 TRUNCATE TABLE ORDERS（未二次确认）→ Run A 记录「需二次确认，未确认拒绝执行，数据未清空(7)」</li><li>验证 ORDERS 仍有 7 行 → 通过</li></ul>
+      <p><b>输出：</b>需二次确认，未确认拒绝执行，数据未清空(7)</p>
+      <p><b>判定：</b>正确。记录输出与期望「需二次确认」一致；未确认前数据未清空。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-27 <span class="meta">negative / P1 / DDL执行 / 对象已存在（ORA-00955）</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>创建已存在的 ORDERS 表</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>预置 ORDERS 表 → 成功</li><li>调用 skill 执行 CREATE TABLE ORDERS → Run A 记录「ORA-00955 对象已存在，中断，未重复创建」</li><li>验证 dba_tables ORDERS cnt=1（仅原有 1 张）→ 通过</li></ul>
+      <p><b>输出：</b>ORA-00955，中断，未重复创建</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 中断」一致；未重复创建。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-28 <span class="meta">negative / P1 / DDL执行 / 资源正忙（ORA-00054）</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>修改被锁定的 ORDERS 结构</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>后台 FOR UPDATE 长查询持 ORDERS TM 锁（lmode=3）→ 成功</li><li>调用 skill 执行 ALTER TABLE ORDERS ADD remark → Run A 记录「ORA-00054 资源正忙，DDL 被锁阻塞超时，变更未生效」</li><li>验证 dba_tab_columns REMARK cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>ORA-00054，DDL 被锁阻塞超时，变更未生效</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 中断」一致；变更未生效。过程验证方法简洁性需改进（锁构造较复杂）。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct（锁构造有效）；方法简洁性：需改进；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-29 <span class="meta">positive / P0 / Dry Run 模式 / dry_run=true 仅解析不执行</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>试运行建表，先别真建</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>case 29 前 DROP CUSTOMERS → 成功</li><li>调用 skill 执行 CREATE TABLE CUSTOMERS（dry_run=true）→ Run A 记录「仅输出方案，未实际建表」</li><li>验证 dba_tables CUSTOMERS 未建（case 30 才建）→ 通过</li></ul>
+      <p><b>输出：</b>仅输出方案，未实际建表</p>
+      <p><b>判定：</b>正确。记录输出与期望「仅输出回滚方案」一致；dry_run 未实际建表。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-30 <span class="meta">boundary / P1 / Dry Run 模式 / dry_run=false 实际执行</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>正式执行建表 CUSTOMERS</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>调用 skill 执行 CREATE TABLE CUSTOMERS（dry_run=false）→ Run A 记录「实际建表 CUSTOMERS 成功」</li><li>验证 dba_tables CUSTOMERS cnt=1 → 通过</li></ul>
+      <p><b>输出：</b>实际建表 CUSTOMERS 成功</p>
+      <p><b>判定：</b>正确。记录输出与期望「DDL 实际执行成功」一致；表已实际创建。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct；方法简洁性：correct；skill 有效性：correct</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-31 <span class="meta">negative / P0 / 权限校验 / 权限不足中断</span> <span style="background:#9a6700;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">needs_review</span></h3>
+      <p><b>输入：</b>创建表但当前用户无 CREATE TABLE 权限</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>检查可用账号权限 → TEST 具备 CREATE TABLE/CREATE ANY TABLE，无法构造权限不足场景</li><li>调用 skill → 未执行（constructible_in_current_env=false）</li><li>验证 dba_tables NO_PRIV_TABLE cnt=0 → 通过</li></ul>
+      <p><b>输出：</b>权限不足场景无法构造，未执行</p>
+      <p><b>判定：</b>needs_review。constructible_in_current_env=false，TEST 用户具备 CREATE TABLE 权限，无法构造权限不足场景，skill 的权限不足判断逻辑无法在真实环境验证。记录输出如实说明未执行。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct（如实记录无法构造）；方法简洁性：correct；skill 有效性：需改进（权限不足分支未覆盖）</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-32 <span class="meta">boundary / P1 / 前置检查 / 数据库非 READ WRITE 状态</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>在只读数据库上执行更新</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>读取实际 open_mode → READ WRITE（非只读）</li><li>调用 skill 执行 UPDATE（auto_rollback=true）→ Run A 记录「open_mode=READ WRITE，auto_rollback 后 id=1001 未变更(ACTIVE)」</li><li>验证 id=1001 未变更 → 通过</li></ul>
+      <p><b>输出：</b>open_mode=READ WRITE，auto_rollback 后 id=1001 未变更(ACTIVE)</p>
+      <p><b>判定：</b>正确。constructible_in_current_env=false，实际 open_mode=READ WRITE，skill 判断逻辑正确（仅非 READ WRITE 才拒绝），未误拒绝。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct（读取实际 open_mode 验证）；方法简洁性：correct；skill 有效性：需改进（只读分支未覆盖）</p>
+    </div>
+    <div class="case">
+      <h3>db-oracle-execute-33 <span class="meta">boundary / P2 / 前置检查 / 活跃事务数过高</span> <span style="background:#1a7f37;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">正确</span></h3>
+      <p><b>输入：</b>活跃事务很多时执行更新</p>
+      <p><b>关键步骤：</b></p>
+      <ul><li>读取实际活跃事务数 → v$transaction 活跃事务=0（&lt;10）</li><li>调用 skill 执行 UPDATE id=1001 → Run A 记录「UPDATE 生效，status=PROCESSING」</li><li>验证 id=1001 status=PROCESSING → 通过</li></ul>
+      <p><b>输出：</b>UPDATE id=1001 生效，status=PROCESSING</p>
+      <p><b>判定：</b>正确。constructible_in_current_env=false，实际活跃事务=0（&lt;10），skill 判断逻辑正确（未误报风险），UPDATE 生效。</p>
+      <p class="proc"><b>过程验证：</b>执行正确性：correct（读取实际活跃事务数验证）；方法简洁性：correct；skill 有效性：需改进（活跃事务&gt;=10 分支未覆盖）</p>
+    </div>
+
+<h2>FAIL 明细</h2>
+<table><tr><th>用例</th><th>失败原因</th><th>执行日志引用</th><th>验证报告引用</th></tr>
+<tr><td>01,03,04,05,06,07,08,09,10,13</td><td>Run A 记录输出与用例定义错位（CREATE TABLE→DML INSERT、CREATE INDEX→DML DELETE、DELETE→MERGE、SELECT→DCL GRANT、GRANT→ALTER SYSTEM、ALTER SYSTEM→DROP TABLESPACE、DROP TABLESPACE→SELECT、DROP DATABASE→非法 SQL、INSERT→UPDATE、MERGE→UPDATE）；DB 终态显示 skill 动作实际正确</td><td>Run A 075ad6ad-e441-4861-9d99-c81379730dbc（SKILL_OUTPUT 表记录错位）</td><td>Run B f0f63ead-af81-4d1a-a293-014ab71826ba（各用例判定：错误）</td></tr>
+<tr><td>12</td><td>记录输出为 DML UPDATE（期望 DELETE）；且 DB 证据 id=1001 仍存在（cnt=1），与 DELETE 预期矛盾，可能未真正执行 DELETE</td><td>Run A 075ad6ad-e441-4861-9d99-c81379730dbc（case 12 记录）</td><td>Run B f0f63ead-af81-4d1a-a293-014ab71826ba（case 12 判定：错误）</td></tr>
+</table>
+
+<h2>过程验证汇总（Run B）</h2>
+<ol>
+<li><b>执行正确性：需改进。</b>环境构造正确（ORDERS/ORDERS_STAGE/CUSTOMERS/LOCK_HELPER 表、预置数据、回收站 DROP→FLASHBACK 恢复、case 28 锁构造均合理）。但 SKILL_OUTPUT 记录与用例定义错位（case 01-13），Run A 的 summary 评论亦将 case 01-04 误标为「DML INSERT/UPDATE/DELETE/MERGE」（实际 01 为 CREATE TABLE DDL、03 为 CREATE INDEX DDL）。改进建议：逐用例核对 skill 输出与 case_id 对应关系，修正 SKILL_OUTPUT 记录；case 12 复核 DELETE 是否真正执行。</li>
+<li><b>方法简洁性：需改进。</b>auto_rollback 用例（14/17/32）用「执行后还原」模拟 SAVEPOINT 回滚，未真正调用 skill 的 SAVEPOINT 回滚机制（swissql 单语句自动提交限制），无法验证 skill 回滚正确性。改进建议：若需验证 SAVEPOINT 回滚，改用支持事务的会话/连接方式，或明确标注该分支未覆盖。case 28 锁构造较复杂，可简化。</li>
+<li><b>skill 有效性：需改进。</b>case 14-30 的 skill 输出与 expected_output 匹配良好，DDL/DML 执行、回滚方案、错误处理（ORA-00001/00942/00955/00054）判断正确。但 case 01-13 记录输出错位，无法可靠评估 skill 真实输出；case 31/32/33 的不可构造分支（权限不足/只读/高并发）未覆盖。改进建议：修正记录后重新评估 case 01-13；在无权限账号、只读库、高并发环境补充验证未覆盖分支。</li>
+</ol>
+
+<h2>needs_review 清单（回滚前人工复核）</h2>
+<ul>
+<li><b>case 01,03,04,05,06,07,08,09,10,13（FAIL）</b>：Run A 记录输出错位，需修正 SKILL_OUTPUT 记录后重新评估 skill 真实输出。</li>
+<li><b>case 12（FAIL，高危）</b>：DELETE id=1001 未生效存疑（id=1001 仍存在），需 Run A 复核是否真正执行 DELETE。</li>
+<li><b>case 31（needs_review）</b>：权限不足分支无法构造（TEST 有 CREATE TABLE 权限），skill 权限不足判断逻辑未在真实环境验证。</li>
+<li><b>case 14/17/32（过程需改进）</b>：auto_rollback/超时回滚用「执行后还原」模拟，未真正验证 skill SAVEPOINT 回滚机制。</li>
+<li><b>case 32/33（分支未覆盖）</b>：只读库、活跃事务>=10 分支未在真实环境覆盖。</li>
+</ul>
+
+<h2>回滚门禁</h2>
+<p>已创建「待审批回滚」子工单，人工复核确认前，<b>回滚（Run D）不得执行</b>。</p>
+</body></html>

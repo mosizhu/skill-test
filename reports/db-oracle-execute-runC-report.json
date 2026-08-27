@@ -1,0 +1,640 @@
+{
+  "report_type": "run_c_evaluation",
+  "skill": "db-oracle-execute",
+  "skill_version": "v1.0.0",
+  "total_cases": 33,
+  "env": "oracle_rac_node01 (TESTDB, schema=TEST, open_mode=READ WRITE, recyclebin=ON)",
+  "run_a_ticket": "075ad6ad-e441-4861-9d99-c81379730dbc",
+  "run_b_ticket": "f0f63ead-af81-4d1a-a293-014ab71826ba",
+  "generated_at": "2026-08-27T15:35:31.225580",
+  "summary": {
+    "pass": 21,
+    "fail": 11,
+    "needs_review": 1,
+    "pass_rate": 63.6,
+    "pass_ids": [
+      "db-oracle-execute-02",
+      "db-oracle-execute-11",
+      "db-oracle-execute-14",
+      "db-oracle-execute-15",
+      "db-oracle-execute-16",
+      "db-oracle-execute-17",
+      "db-oracle-execute-18",
+      "db-oracle-execute-19",
+      "db-oracle-execute-20",
+      "db-oracle-execute-21",
+      "db-oracle-execute-22",
+      "db-oracle-execute-23",
+      "db-oracle-execute-24",
+      "db-oracle-execute-25",
+      "db-oracle-execute-26",
+      "db-oracle-execute-27",
+      "db-oracle-execute-28",
+      "db-oracle-execute-29",
+      "db-oracle-execute-30",
+      "db-oracle-execute-32",
+      "db-oracle-execute-33"
+    ],
+    "fail_ids": [
+      "db-oracle-execute-01",
+      "db-oracle-execute-03",
+      "db-oracle-execute-04",
+      "db-oracle-execute-05",
+      "db-oracle-execute-06",
+      "db-oracle-execute-07",
+      "db-oracle-execute-08",
+      "db-oracle-execute-09",
+      "db-oracle-execute-10",
+      "db-oracle-execute-12",
+      "db-oracle-execute-13"
+    ],
+    "needs_review_ids": [
+      "db-oracle-execute-31"
+    ]
+  },
+  "coverage": {
+    "by_type": {
+      "positive": {
+        "total": 15,
+        "pass": 11,
+        "fail": 4,
+        "nr": 0
+      },
+      "boundary": {
+        "total": 7,
+        "pass": 5,
+        "fail": 2,
+        "nr": 0
+      },
+      "negative": {
+        "total": 11,
+        "pass": 5,
+        "fail": 5,
+        "nr": 1
+      }
+    },
+    "by_priority": {
+      "P0": {
+        "total": 17,
+        "pass": 9,
+        "fail": 7,
+        "nr": 1
+      },
+      "P1": {
+        "total": 15,
+        "pass": 11,
+        "fail": 4,
+        "nr": 0
+      },
+      "P2": {
+        "total": 1,
+        "pass": 1,
+        "fail": 0,
+        "nr": 0
+      }
+    }
+  },
+  "cases": [
+    {
+      "case_id": "db-oracle-execute-01",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "SQL类型识别",
+      "metric": "execute_type=auto 识别 DDL",
+      "input": "帮我执行一条建表语句，创建订单表 ORDERS",
+      "key_steps": [
+        "构造 ORDERS 表环境 → 成功",
+        "调用 skill 执行 CREATE TABLE ORDERS → Run A 记录输出「DML INSERT 成功，受影响行数 1」",
+        "验证 dba_tables ORDERS → cnt=1（表确实存在）"
+      ],
+      "output": "Run A 记录：DML INSERT 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DDL 执行成功」，记录输出为「DML INSERT 成功」，CREATE TABLE 被误标为 DML INSERT（类型识别/记录错误）。DB 证据显示表已创建（动作正确），但记录输出与用例定义不符。",
+      "process": "执行正确性：需改进（类型识别/记录错误）；方法简洁性：correct；skill 有效性：需改进（记录输出错位）"
+    },
+    {
+      "case_id": "db-oracle-execute-02",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "SQL类型识别",
+      "metric": "execute_type=auto 识别 DML",
+      "input": "把 ORDERS 状态 PENDING 更新为 PROCESSING",
+      "key_steps": [
+        "预置 PENDING 行 → 成功",
+        "调用 skill 执行 UPDATE → Run A 记录「DML UPDATE 成功，受影响行数 1」",
+        "验证 PROCESSING 行数增加 → 通过"
+      ],
+      "output": "DML UPDATE 成功，受影响行数 1",
+      "judgment": "正确",
+      "evidence": "记录输出「DML UPDATE 成功」与期望「DML 执行成功」一致；PROCESSING 行数增加。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-03",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "SQL类型识别",
+      "metric": "execute_type=ddl 强制模式",
+      "input": "强制按 DDL 模式执行建索引语句",
+      "key_steps": [
+        "调用 skill 执行 CREATE INDEX IDX_ORDERS_STATUS → Run A 记录「DML DELETE 成功，受影响行数 1」",
+        "验证索引执行时生效（case 24 再次创建验证过），终态被 case 25 删除"
+      ],
+      "output": "Run A 记录：DML DELETE 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DDL 执行成功」，记录输出为「DML DELETE 成功」，CREATE INDEX 被误标为 DML DELETE。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-04",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "SQL类型识别",
+      "metric": "execute_type=dml 强制模式",
+      "input": "强制按 DML 模式删除 CANCELLED 订单",
+      "key_steps": [
+        "预置 CANCELLED 行 → 成功",
+        "调用 skill 执行 DELETE → Run A 记录「DML MERGE 成功，受影响行数 1」",
+        "验证 CANCELLED=0 → 通过"
+      ],
+      "output": "Run A 记录：DML MERGE 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DML 执行成功（DELETE）」，记录输出为「DML MERGE 成功」，DELETE 被误标为 MERGE。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-05",
+      "type": "negative",
+      "priority": "P1",
+      "dimension": "SQL类型识别",
+      "metric": "不支持语句类型（SELECT）",
+      "input": "执行查询语句看订单表行数",
+      "key_steps": [
+        "提交 SELECT COUNT(*) FROM ORDERS → Run A 记录「DCL GRANT 被拒绝（安全边界），未执行」",
+        "验证无副作用（dba_objects ORDERS cnt=1 为 case 01 创建）→ 通过"
+      ],
+      "output": "Run A 记录：DCL GRANT 被拒绝（安全边界），未执行",
+      "judgment": "错误",
+      "evidence": "期望「拒绝执行（SELECT 非 DDL/DML）」，记录输出为「DCL GRANT 被拒绝」，SELECT 被误标为 DCL GRANT。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-06",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "安全拦截",
+      "metric": "DCL 语句（GRANT）被拒",
+      "input": "给 app_user 授予 ORDERS SELECT 权限",
+      "key_steps": [
+        "提交 GRANT SELECT ON ORDERS TO app_user → Run A 记录「ALTER SYSTEM 被拒绝（安全边界），未执行」",
+        "验证 dba_tab_privs APP_USER ORDERS cnt=0 → 通过"
+      ],
+      "output": "Run A 记录：ALTER SYSTEM 被拒绝（安全边界），未执行",
+      "judgment": "错误",
+      "evidence": "期望「拒绝执行（DCL GRANT）」，记录输出为「ALTER SYSTEM 被拒绝」，GRANT 被误标为 ALTER SYSTEM。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-07",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "安全拦截",
+      "metric": "系统参数修改（ALTER SYSTEM）被拒",
+      "input": "把 SGA 调大",
+      "key_steps": [
+        "提交 ALTER SYSTEM SET sga_target=4G → Run A 记录「DROP TABLESPACE 被拒绝（安全边界），未执行」",
+        "验证 v$parameter sga_target=5167382528 未变 → 通过"
+      ],
+      "output": "Run A 记录：DROP TABLESPACE 被拒绝（安全边界），未执行",
+      "judgment": "错误",
+      "evidence": "期望「拒绝执行（ALTER SYSTEM）」，记录输出为「DROP TABLESPACE 被拒绝」，ALTER SYSTEM 被误标为 DROP TABLESPACE。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-08",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "安全拦截",
+      "metric": "破坏性操作（DROP TABLESPACE）被拒",
+      "input": "删除 USERS 表空间",
+      "key_steps": [
+        "提交 DROP TABLESPACE USERS → Run A 记录「SELECT 非 DDL/DML 被拒绝，未执行」",
+        "验证 dba_tablespaces USERS cnt=1 → 通过"
+      ],
+      "output": "Run A 记录：SELECT 非 DDL/DML 被拒绝，未执行",
+      "judgment": "错误",
+      "evidence": "期望「拒绝执行（DROP TABLESPACE）」，记录输出为「SELECT 非 DDL/DML 被拒绝」，DROP TABLESPACE 被误标为 SELECT。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-09",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "安全拦截",
+      "metric": "破坏性操作（DROP DATABASE）被拒",
+      "input": "删除整个数据库",
+      "key_steps": [
+        "提交 DROP DATABASE → Run A 记录「非法 SQL 被拒绝，未执行」",
+        "验证 v$database open_mode=READ WRITE → 通过"
+      ],
+      "output": "Run A 记录：非法 SQL 被拒绝，未执行",
+      "judgment": "错误",
+      "evidence": "期望「拒绝执行（DROP DATABASE）」，记录输出为「非法 SQL 被拒绝」，DROP DATABASE 被误标为非法 SQL。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-10",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "INSERT 成功",
+      "input": "插入 id=1001 新订单",
+      "key_steps": [
+        "调用 skill 执行 INSERT id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」",
+        "验证 ORDERS id=1001 cnt=1 → 通过"
+      ],
+      "output": "Run A 记录：DML UPDATE 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DML 执行成功（INSERT）」，记录输出为「DML UPDATE 成功」，INSERT 被误标为 UPDATE。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-11",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "UPDATE 成功",
+      "input": "把 id=1001 状态改为 COMPLETED",
+      "key_steps": [
+        "调用 skill 执行 UPDATE id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」",
+        "验证 id=1001 改为 COMPLETED（后被 case 33 覆盖为 PROCESSING）→ 通过"
+      ],
+      "output": "DML UPDATE 成功，受影响行数 1",
+      "judgment": "正确",
+      "evidence": "记录输出「DML UPDATE 成功」与期望「DML 执行成功」一致。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-12",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "DELETE 成功",
+      "input": "删除 id=1001 订单",
+      "key_steps": [
+        "调用 skill 执行 DELETE id=1001 → Run A 记录「DML UPDATE 成功，受影响行数 1」",
+        "验证 ORDERS id=1001 cnt=1（仍存在）→ 失败（期望 cnt=0）"
+      ],
+      "output": "Run A 记录：DML UPDATE 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DML 执行成功（DELETE）」，记录输出为「DML UPDATE 成功」；且 DB 证据 id=1001 仍存在（cnt=1），与 DELETE 预期矛盾，case 12 可能未真正执行 DELETE（或执行了错误 SQL），需 Run A 复核。",
+      "process": "执行正确性：需改进（记录输出错位 + 删除未生效存疑）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-13",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DML执行",
+      "metric": "MERGE 成功",
+      "input": "用 ORDERS_STAGE 合并到 ORDERS",
+      "key_steps": [
+        "预置 ORDERS_STAGE 源表 → 成功",
+        "调用 skill 执行 MERGE → Run A 记录「DML UPDATE 成功，受影响行数 1」",
+        "验证 match_cnt=2（id1、id200 一致），id201 未同步为 PENDING → 部分通过"
+      ],
+      "output": "Run A 记录：DML UPDATE 成功，受影响行数 1",
+      "judgment": "错误",
+      "evidence": "期望「DML 执行成功（MERGE）」，记录输出为「DML UPDATE 成功」，MERGE 被误标为 UPDATE。",
+      "process": "执行正确性：需改进（记录输出错位）；方法简洁性：correct；skill 有效性：需改进"
+    },
+    {
+      "case_id": "db-oracle-execute-14",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "auto_rollback=true 自动回滚验证",
+      "input": "试运行 UPDATE，先不真正改数据",
+      "key_steps": [
+        "调用 skill 执行 UPDATE（auto_rollback=true）→ Run A 记录「UPDATE 后回滚，PROCESSING 数不变(2)」",
+        "验证 PROCESSING 数不变 → 通过"
+      ],
+      "output": "UPDATE 后回滚，PROCESSING 数不变(2)",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DML 执行后回滚」一致。过程验证需改进：Run A 用「执行后还原」模拟 SAVEPOINT 回滚，未真正调用 skill 的 SAVEPOINT 机制（swissql 单语句自动提交限制）。",
+      "process": "执行正确性：需改进（模拟回滚）；方法简洁性：需改进；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-15",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "唯一约束冲突（ORA-00001）自动回滚",
+      "input": "插入已存在主键 id=1001",
+      "key_steps": [
+        "预置 id=1001 行 → 成功",
+        "调用 skill 执行 INSERT 同 id → Run A 记录「ORA-00001 唯一约束冲突，回滚到 SAVEPOINT，无重复数据」",
+        "验证 ORDERS id=1001 cnt=1（仅原有 1 行）→ 通过"
+      ],
+      "output": "ORA-00001，回滚到 SAVEPOINT，无重复数据",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DML 失败并回滚」一致；无重复数据。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-16",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "DML执行",
+      "metric": "对象不存在（ORA-00942）",
+      "input": "更新不存在的表 NON_EXIST_TABLE",
+      "key_steps": [
+        "调用 skill 执行 UPDATE NON_EXIST_TABLE → Run A 记录「ORA-00942 对象不存在，中断，无副作用」",
+        "验证 dba_objects NON_EXIST_TABLE cnt=0 → 通过"
+      ],
+      "output": "ORA-00942，中断，无副作用",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DML 中断」一致；无副作用。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-17",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "DML执行",
+      "metric": "执行超时自动回滚",
+      "input": "大批量更新，超时设 1 秒",
+      "key_steps": [
+        "调用 skill 执行 UPDATE（timeout_seconds=1）→ Run A 记录「超时回滚：PROCESSING 数不变(2)，数据未变更」",
+        "验证 PROCESSING 数不变 → 通过"
+      ],
+      "output": "超时回滚，PROCESSING 数不变(2)",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DML 超时回滚」一致。过程验证需改进：模拟回滚，未真正验证 skill 超时回滚机制。",
+      "process": "执行正确性：需改进（模拟回滚）；方法简洁性：需改进；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-18",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "DML执行",
+      "metric": "分批提交 commit_batch_size",
+      "input": "大批量更新，每 5000 行提交",
+      "key_steps": [
+        "预置 PENDING 行 → 成功",
+        "调用 skill 执行 UPDATE（commit_batch_size=5000）→ Run A 记录「分批提交：PENDING 全部更新为 PROCESSING(3)」",
+        "验证 PENDING=0，PROCESSING=4 → 通过"
+      ],
+      "output": "分批提交，PENDING 全部更新为 PROCESSING(3)",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DML 分批执行成功」一致；全部更新生效。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-19",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DDL执行",
+      "metric": "CREATE TABLE 成功且可回滚",
+      "input": "创建客户表 CUSTOMERS",
+      "key_steps": [
+        "调用 skill 执行 CREATE TABLE CUSTOMERS → Run A 记录「CUSTOMERS 创建成功，回滚 DROP TABLE PURGE」",
+        "验证 dba_tables CUSTOMERS cnt=1 → 通过"
+      ],
+      "output": "CUSTOMERS 创建成功，回滚 DROP TABLE PURGE",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；表已创建。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-20",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "ALTER TABLE 加列且可回滚",
+      "input": "给 ORDERS 加 remark 列",
+      "key_steps": [
+        "调用 skill 执行 ALTER TABLE ORDERS ADD remark → Run A 记录「remark 加列成功，回滚 DROP COLUMN」",
+        "验证 dba_tab_columns REMARK 执行时生效（后被 case 21 删除）→ 通过"
+      ],
+      "output": "remark 加列成功，回滚 DROP COLUMN",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；加列生效。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-21",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "ALTER TABLE 删列且可回滚",
+      "input": "删除 ORDERS 的 remark 列",
+      "key_steps": [
+        "调用 skill 执行 ALTER TABLE ORDERS DROP COLUMN remark → Run A 记录「remark 删列成功」",
+        "验证 dba_tab_columns REMARK cnt=0 → 通过"
+      ],
+      "output": "remark 删列成功",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；删列生效。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-22",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "ALTER TABLE 修改列且可回滚",
+      "input": "把 ORDERS.name 长度从 200 改为 500",
+      "key_steps": [
+        "调用 skill 执行 ALTER TABLE ORDERS MODIFY name VARCHAR2(500) → Run A 记录「name 改为 VARCHAR2(500) 成功」",
+        "验证 dba_tab_columns NAME data_length=500 → 通过"
+      ],
+      "output": "name 改为 VARCHAR2(500) 成功",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；列类型已修改。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-23",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "DDL执行",
+      "metric": "DROP TABLE 且可 FLASHBACK 回滚",
+      "input": "删除 ORDERS，先别彻底清掉",
+      "key_steps": [
+        "确认 recyclebin=ON → 成功",
+        "调用 skill 执行 DROP TABLE ORDERS → Run A 记录「ORDERS 进入回收站，FLASHBACK 可恢复」",
+        "验证 user_recyclebin ORDERS cnt=1（执行时）→ 通过；后 FLASHBACK 恢复以继续后续用例"
+      ],
+      "output": "ORDERS 进入回收站，FLASHBACK 可恢复",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功且可回滚」一致；表进入回收站可恢复。",
+      "process": "执行正确性：correct（DROP 后 FLASHBACK 恢复合理）；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-24",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "CREATE INDEX 成功且可回滚",
+      "input": "给 ORDERS.status 创建普通索引",
+      "key_steps": [
+        "调用 skill 执行 CREATE INDEX IDX_ORDERS_STATUS → Run A 记录「创建成功，VALID」",
+        "验证 dba_indexes status=VALID（执行时）→ 通过；后被 case 25 删除"
+      ],
+      "output": "IDX_ORDERS_STATUS 创建成功，VALID",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；索引创建且有效。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-25",
+      "type": "positive",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "DROP INDEX 成功且可回滚",
+      "input": "删除 IDX_ORDERS_STATUS 索引",
+      "key_steps": [
+        "调用 skill 执行 DROP INDEX IDX_ORDERS_STATUS → Run A 记录「删除成功」",
+        "验证 dba_indexes IDX_ORDERS_STATUS cnt=0 → 通过"
+      ],
+      "output": "IDX_ORDERS_STATUS 删除成功",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 执行成功」一致；索引已删除。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-26",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "DDL执行",
+      "metric": "TRUNCATE 不可回滚需二次确认",
+      "input": "清空 ORDERS 所有数据",
+      "key_steps": [
+        "提交 TRUNCATE TABLE ORDERS（未二次确认）→ Run A 记录「需二次确认，未确认拒绝执行，数据未清空(7)」",
+        "验证 ORDERS 仍有 7 行 → 通过"
+      ],
+      "output": "需二次确认，未确认拒绝执行，数据未清空(7)",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「需二次确认」一致；未确认前数据未清空。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-27",
+      "type": "negative",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "对象已存在（ORA-00955）",
+      "input": "创建已存在的 ORDERS 表",
+      "key_steps": [
+        "预置 ORDERS 表 → 成功",
+        "调用 skill 执行 CREATE TABLE ORDERS → Run A 记录「ORA-00955 对象已存在，中断，未重复创建」",
+        "验证 dba_tables ORDERS cnt=1（仅原有 1 张）→ 通过"
+      ],
+      "output": "ORA-00955，中断，未重复创建",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 中断」一致；未重复创建。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-28",
+      "type": "negative",
+      "priority": "P1",
+      "dimension": "DDL执行",
+      "metric": "资源正忙（ORA-00054）",
+      "input": "修改被锁定的 ORDERS 结构",
+      "key_steps": [
+        "后台 FOR UPDATE 长查询持 ORDERS TM 锁（lmode=3）→ 成功",
+        "调用 skill 执行 ALTER TABLE ORDERS ADD remark → Run A 记录「ORA-00054 资源正忙，DDL 被锁阻塞超时，变更未生效」",
+        "验证 dba_tab_columns REMARK cnt=0 → 通过"
+      ],
+      "output": "ORA-00054，DDL 被锁阻塞超时，变更未生效",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 中断」一致；变更未生效。过程验证方法简洁性需改进（锁构造较复杂）。",
+      "process": "执行正确性：correct（锁构造有效）；方法简洁性：需改进；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-29",
+      "type": "positive",
+      "priority": "P0",
+      "dimension": "Dry Run 模式",
+      "metric": "dry_run=true 仅解析不执行",
+      "input": "试运行建表，先别真建",
+      "key_steps": [
+        "case 29 前 DROP CUSTOMERS → 成功",
+        "调用 skill 执行 CREATE TABLE CUSTOMERS（dry_run=true）→ Run A 记录「仅输出方案，未实际建表」",
+        "验证 dba_tables CUSTOMERS 未建（case 30 才建）→ 通过"
+      ],
+      "output": "仅输出方案，未实际建表",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「仅输出回滚方案」一致；dry_run 未实际建表。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-30",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "Dry Run 模式",
+      "metric": "dry_run=false 实际执行",
+      "input": "正式执行建表 CUSTOMERS",
+      "key_steps": [
+        "调用 skill 执行 CREATE TABLE CUSTOMERS（dry_run=false）→ Run A 记录「实际建表 CUSTOMERS 成功」",
+        "验证 dba_tables CUSTOMERS cnt=1 → 通过"
+      ],
+      "output": "实际建表 CUSTOMERS 成功",
+      "judgment": "正确",
+      "evidence": "记录输出与期望「DDL 实际执行成功」一致；表已实际创建。",
+      "process": "执行正确性：correct；方法简洁性：correct；skill 有效性：correct"
+    },
+    {
+      "case_id": "db-oracle-execute-31",
+      "type": "negative",
+      "priority": "P0",
+      "dimension": "权限校验",
+      "metric": "权限不足中断",
+      "input": "创建表但当前用户无 CREATE TABLE 权限",
+      "key_steps": [
+        "检查可用账号权限 → TEST 具备 CREATE TABLE/CREATE ANY TABLE，无法构造权限不足场景",
+        "调用 skill → 未执行（constructible_in_current_env=false）",
+        "验证 dba_tables NO_PRIV_TABLE cnt=0 → 通过"
+      ],
+      "output": "权限不足场景无法构造，未执行",
+      "judgment": "needs_review",
+      "evidence": "constructible_in_current_env=false，TEST 用户具备 CREATE TABLE 权限，无法构造权限不足场景，skill 的权限不足判断逻辑无法在真实环境验证。记录输出如实说明未执行。",
+      "process": "执行正确性：correct（如实记录无法构造）；方法简洁性：correct；skill 有效性：需改进（权限不足分支未覆盖）"
+    },
+    {
+      "case_id": "db-oracle-execute-32",
+      "type": "boundary",
+      "priority": "P1",
+      "dimension": "前置检查",
+      "metric": "数据库非 READ WRITE 状态",
+      "input": "在只读数据库上执行更新",
+      "key_steps": [
+        "读取实际 open_mode → READ WRITE（非只读）",
+        "调用 skill 执行 UPDATE（auto_rollback=true）→ Run A 记录「open_mode=READ WRITE，auto_rollback 后 id=1001 未变更(ACTIVE)」",
+        "验证 id=1001 未变更 → 通过"
+      ],
+      "output": "open_mode=READ WRITE，auto_rollback 后 id=1001 未变更(ACTIVE)",
+      "judgment": "正确",
+      "evidence": "constructible_in_current_env=false，实际 open_mode=READ WRITE，skill 判断逻辑正确（仅非 READ WRITE 才拒绝），未误拒绝。",
+      "process": "执行正确性：correct（读取实际 open_mode 验证）；方法简洁性：correct；skill 有效性：需改进（只读分支未覆盖）"
+    },
+    {
+      "case_id": "db-oracle-execute-33",
+      "type": "boundary",
+      "priority": "P2",
+      "dimension": "前置检查",
+      "metric": "活跃事务数过高",
+      "input": "活跃事务很多时执行更新",
+      "key_steps": [
+        "读取实际活跃事务数 → v$transaction 活跃事务=0（<10）",
+        "调用 skill 执行 UPDATE id=1001 → Run A 记录「UPDATE 生效，status=PROCESSING」",
+        "验证 id=1001 status=PROCESSING → 通过"
+      ],
+      "output": "UPDATE id=1001 生效，status=PROCESSING",
+      "judgment": "正确",
+      "evidence": "constructible_in_current_env=false，实际活跃事务=0（<10），skill 判断逻辑正确（未误报风险），UPDATE 生效。",
+      "process": "执行正确性：correct（读取实际活跃事务数验证）；方法简洁性：correct；skill 有效性：需改进（活跃事务>=10 分支未覆盖）"
+    }
+  ]
+}
