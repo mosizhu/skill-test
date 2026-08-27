@@ -292,7 +292,7 @@
     "assertions": [
       {
         "name": "增长量计算正确",
-        "ground_truth_sql": "SELECT tablespace_name, ROUND(SUM(tablespace_size*8192)/1024/1024,2) AS total_mb FROM dba_hist_tbspc_space_usage WHERE snap_id=(SELECT MAX(snap_id) FROM dba_hist_tbspc_space_usage) GROUP BY tablespace_name",
+        "ground_truth_sql": "SELECT t.tablespace_name, ROUND(SUM(h.tablespace_size*8192)/1024/1024,2) AS total_mb FROM dba_hist_tbspc_space_usage h JOIN dba_tablespaces t ON h.ts# = t.ts# WHERE h.snap_id=(SELECT MAX(snap_id) FROM dba_hist_tbspc_space_usage) GROUP BY t.tablespace_name",
         "logic": "skill 输出的最新表空间大小 == ground_truth 的 total_mb（允许浮点误差）"
       }
     ],
@@ -1433,7 +1433,7 @@
       {
         "name": "综合评分计算正确",
         "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM dba_objects WHERE status='INVALID') AS invalid_cnt, (SELECT COUNT(*) FROM dba_indexes WHERE status='UNUSABLE') AS unusable_cnt FROM dual",
-        "logic": "skill 输出的对象维度扣分 == 依据 ground_truth 的 invalid_cnt*3 + unusable_cnt*5 计算值；综合评分 = 100 - 各维度扣分之和"
+        "logic": "skill 输出的对象维度扣分 == 依据 ground_truth 计算：若 invalid_cnt>0 扣 3 分，若 unusable_cnt>0 扣 5 分（固定扣分，不按数量累加）；综合评分 = 100 - 各维度扣分之和"
       }
     ],
     "constructible_in_current_env": false,
