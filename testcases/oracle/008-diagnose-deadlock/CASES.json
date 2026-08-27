@@ -1,0 +1,565 @@
+[
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "死锁trace解析",
+    "metric": "死锁类型识别-TX",
+    "target_state": "severe",
+    "judgment_rule": "trace 含 'DEADLOCK DETECTED ( ORA-00060 )' 且 Resource Name 以 'TX-' 开头 → 判定为 TX 事务锁死锁",
+    "user_input": "帮我分析 /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_12345.trc 这个死锁 trace，判断死锁类型，并定位哪个事务被回滚了",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "/u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_12345.trc",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "TX 事务锁死锁",
+      "description": "识别死锁来源为 trace 文件，判定死锁类型为 TX（enq: TX - row lock contention），构建等待依赖图（Wait-for-Graph）定位死锁环，识别被回滚事务（undo 量最少者），输出涉及会话 SQL 与预防建议"
+    },
+    "assertions": [
+      {
+        "name": "死锁类型识别正确",
+        "ground_truth_sql": "SELECT line FROM deadlock_trace_ext WHERE line LIKE 'DEADLOCK DETECTED%' OR line LIKE 'TX-%' OR line LIKE 'TM-%'",
+        "logic": "若 trace 内容含 'DEADLOCK DETECTED' 且 Resource Name 以 'TX-' 开头，则 skill 输出死锁类型应为 'TX'；若以 'TM-' 开头则应为 'TM'；否则断言失败"
+      },
+      {
+        "name": "回滚事务定位",
+        "ground_truth_sql": "SELECT line FROM deadlock_trace_ext WHERE line LIKE '%Information for the OTHER waiting session%' OR line LIKE '%Information for THIS session%'",
+        "logic": "skill 应基于 trace 中 'Rows waited on' 与 undo 量推断被回滚事务，输出中应包含被回滚会话的 SID 或 SQL 信息，不得遗漏回滚对象结论"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制生成真实死锁 trace；执行 agent 需准备含 ORA-00060 的 trace 文件并建 directory + 外部表（deadlock_trace_ext）读取，验证 skill 解析逻辑；真实环境存在死锁 trace 时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-02",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "死锁trace解析",
+    "metric": "死锁类型识别-TM",
+    "target_state": "severe",
+    "judgment_rule": "trace 中 Resource Name 以 'TM-' 开头 → 判定为 TM 表锁死锁（外键无索引 / DDL 冲突）",
+    "user_input": "分析这个 trace，看是不是外键没建索引导致的 TM 表锁死锁，并给出排查建议",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "/u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_12346.trc",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "TM 表锁死锁",
+      "description": "判定死锁类型为 TM（enq: TM - contention），关联外键无索引或 DDL 冲突成因，输出未索引外键排查建议（索引创建由索引设计专项技能负责）"
+    },
+    "assertions": [
+      {
+        "name": "TM 死锁类型识别",
+        "ground_truth_sql": "SELECT line FROM deadlock_trace_ext WHERE line LIKE 'TM-%' OR line LIKE 'DEADLOCK DETECTED%'",
+        "logic": "若 trace 含 'DEADLOCK DETECTED' 且 Resource Name 以 'TM-' 开头，则 skill 输出死锁类型应为 'TM'，并给出外键无索引/DDL 冲突排查建议"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制生成真实 TM 死锁 trace；执行 agent 需准备含 TM- 资源的 trace 文件并建外部表读取，验证 skill 解析逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-03",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "死锁trace解析",
+    "metric": "死锁类型识别-ITL",
+    "target_state": "severe",
+    "judgment_rule": "trace 中显示 ITL 相关信息（INITRANS 不足）→ 判定为 ITL 槽位死锁",
+    "user_input": "这个死锁是不是 ITL 槽位不足导致的？帮我确认一下并给出预防建议",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "/u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_12347.trc",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "ITL 槽位死锁",
+      "description": "判定死锁类型为 ITL 槽位不足，关联 INITRANS 过小成因，输出增大 INITRANS 的预防建议（不实际执行 ALTER TABLE）"
+    },
+    "assertions": [
+      {
+        "name": "ITL 死锁类型识别",
+        "ground_truth_sql": "SELECT line FROM deadlock_trace_ext WHERE line LIKE '%ITL%' OR line LIKE 'DEADLOCK DETECTED%'",
+        "logic": "若 trace 含 'DEADLOCK DETECTED' 且出现 ITL 相关信息，则 skill 输出死锁类型应为 'ITL'，并给出 INITRANS 不足的预防建议"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制生成真实 ITL 死锁 trace；执行 agent 需准备含 ITL 信息的 trace 文件并建外部表读取，验证 skill 解析逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-04",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "死锁来源确认",
+    "metric": "trace 文件不存在回退",
+    "target_state": "normal",
+    "judgment_rule": "trace 文件不存在时，skill 应回退到实时 V$LOCK / DBA_WAITERS 查询当前锁等待状态，不输出原始异常堆栈",
+    "user_input": "帮我分析 /tmp/nonexistent_deadlock.trc 这个死锁 trace，看看有没有死锁",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "/tmp/nonexistent_deadlock.trc",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "回退实时查询",
+      "description": "trace 文件不存在时 skill 不报错，回退到实时锁等待查询，输出当前 DBA_WAITERS / V$LOCK 状态，输出中不含数据库原始异常堆栈"
+    },
+    "assertions": [
+      {
+        "name": "回退实时查询且无异常堆栈",
+        "ground_truth_sql": "SELECT COUNT(*) AS blocker_cnt FROM dba_blockers",
+        "logic": "无论 blocker_cnt 值如何，skill 对不存在的 trace 文件应回退实时查询并输出结构化锁等待状态，输出中不得包含原始异常堆栈（如 ORA- 堆栈全文）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "trace 文件不存在状态可构造（指定一个不存在的路径即可）；验证 skill 的回退逻辑与异常处理"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-05",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "实时锁等待链查询",
+    "metric": "锁等待链-无阻塞",
+    "target_state": "normal",
+    "judgment_rule": "DBA_BLOCKERS / DBA_WAITERS 为空 → 当前无锁等待、无死锁风险",
+    "user_input": "查一下当前数据库有没有锁等待，有没有死锁风险",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "无锁等待",
+      "description": "实时查询 DBA_BLOCKERS / DBA_WAITERS / V$LOCK，输出当前无阻塞会话、无死锁风险结论"
+    },
+    "assertions": [
+      {
+        "name": "无阻塞判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS blocker_cnt FROM dba_blockers",
+        "logic": "若 blocker_cnt=0，则 skill 应输出'当前无锁等待/无死锁风险'；若 blocker_cnt>0 则 skill 应输出锁等待链，二者必居其一，不得输出与 ground_truth 矛盾的状态"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "无阻塞状态可构造（无并发事务时查询）；验证 skill 对正常状态的判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-06",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "实时锁等待链查询",
+    "metric": "锁等待链-有阻塞",
+    "target_state": "warning",
+    "judgment_rule": "DBA_WAITERS 非空 → 存在锁等待链，输出 waiting→holding 依赖关系",
+    "user_input": "现在有个会话卡住了，帮我查一下锁等待链，谁阻塞了谁",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "存在锁等待链",
+      "description": "输出 DBA_WAITERS 中 waiting_session→holding_session 依赖关系，结合 V$SESSION 输出会话 SQL/用户名/机器，判断是否成环"
+    },
+    "assertions": [
+      {
+        "name": "锁等待链输出",
+        "ground_truth_sql": "SELECT waiting_session, holding_session FROM dba_waiters ORDER BY holding_session",
+        "logic": "若 dba_waiters 非空，则 skill 应输出每条 waiting→holding 依赖关系，且输出集合与 ground_truth 查询结果一致；若 dba_waiters 为空则 skill 应输出无阻塞"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "有阻塞状态可构造（两个会话对同一行加锁制造等待）；验证 skill 的锁等待链输出"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-07",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "实时锁等待链查询",
+    "metric": "锁等待链-死锁环",
+    "target_state": "severe",
+    "judgment_rule": "waiting/holding 关系成环（A 等 B 且 B 等 A）→ 判定为死锁环，输出回滚建议",
+    "user_input": "两个事务互相等锁卡死了，帮我画出等待依赖图，确认是不是死锁环",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "死锁环",
+      "description": "构建 Wait-for-Graph，识别 waiting/holding 成环关系，判定为死锁环，输出回滚对象与预防建议"
+    },
+    "assertions": [
+      {
+        "name": "死锁环判定",
+        "ground_truth_sql": "SELECT waiting_session, holding_session FROM dba_waiters",
+        "logic": "若存在 A 等待 B 且 B 等待 A 的成环关系，则 skill 应判定为死锁环并输出回滚建议；若不成环则输出普通锁等待链，不得误报死锁"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "死锁环可构造（两个会话交叉等待同一组行）；验证 skill 的依赖图构建与死锁环判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-08",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "死锁频率监控",
+    "metric": "enqueue deadlocks 计数",
+    "target_state": "normal",
+    "judgment_rule": "v$sysstat 'enqueue deadlocks' = 0 → 无死锁记录",
+    "user_input": "最近 24 小时有没有发生死锁？帮我统计一下死锁频率",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "无死锁记录",
+      "description": "查询 v$sysstat 'enqueue deadlocks'，输出死锁次数；为 0 时输出无死锁结论"
+    },
+    "assertions": [
+      {
+        "name": "死锁计数判定",
+        "ground_truth_sql": "SELECT value FROM v$sysstat WHERE name = 'enqueue deadlocks'",
+        "logic": "若 value=0，则 skill 应输出'无死锁记录'；若 value>0 则 skill 应输出死锁次数与高发分析，输出与 ground_truth 计数一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "0 死锁计数可构造（正常实例）；验证 skill 对死锁频率的正常判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-09",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "死锁频率监控",
+    "metric": "enqueue deadlocks 计数",
+    "target_state": "warning",
+    "judgment_rule": "v$sysstat 'enqueue deadlocks' > 0 → 存在死锁，输出频率与预防建议",
+    "user_input": "最近死锁有点频繁，帮我查一下死锁统计和发生频率，给出预防建议",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "存在死锁",
+      "description": "输出死锁次数、类型分布（TX/TM/ITL）、发生频率与预防建议清单"
+    },
+    "assertions": [
+      {
+        "name": "死锁高发判定",
+        "ground_truth_sql": "SELECT value FROM v$sysstat WHERE name = 'enqueue deadlocks'",
+        "logic": "若 value>0，则 skill 应输出死锁次数与预防建议；若 value=0 则输出无死锁，输出与 ground_truth 一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制产生真实死锁计数（v$sysstat 为实例累计值）；读取实际值验证判断逻辑，真实环境存在死锁时自动覆盖 warning 分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-10",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "死锁频率监控",
+    "metric": "时间范围窗口",
+    "target_state": "normal",
+    "judgment_rule": "time_range_hours 限定查询窗口，输出应落在该时间窗口内",
+    "user_input": "查一下最近 1 小时内的死锁记录",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "1",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "时间窗口限定",
+      "description": "skill 输出应限定在最近 1 小时窗口内，不包含窗口外记录"
+    },
+    "assertions": [
+      {
+        "name": "时间窗口限定",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_hist_active_sess_history WHERE (event LIKE 'enq: TX%' OR event LIKE 'enq: TM%') AND sample_time > SYSDATE - 1/24",
+        "logic": "skill 输出的死锁/锁等待记录应全部落在 sample_time > SYSDATE - 1/24 窗口内，且数量与 ground_truth 一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造窗口内死锁历史；读取实际值验证 skill 是否按 time_range_hours 限定窗口"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-11",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "ITL槽位检查",
+    "metric": "ITL waits",
+    "target_state": "normal",
+    "judgment_rule": "v$segment_statistics 'ITL waits' 无 value>0 记录 → 无 ITL 槽位等待",
+    "user_input": "帮我查一下有没有 ITL 槽位不足导致的锁等待",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "无 ITL 等待",
+      "description": "查询 v$segment_statistics 'ITL waits'，无 value>0 记录时输出无 ITL 槽位等待结论"
+    },
+    "assertions": [
+      {
+        "name": "ITL 等待判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS itl_cnt FROM v$segment_statistics WHERE statistic_name = 'ITL waits' AND value > 0",
+        "logic": "若 itl_cnt=0，则 skill 应输出'无 ITL 等待'；若 itl_cnt>0 则 skill 应列出 ITL 等待段，输出与 ground_truth 一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "无 ITL 等待状态可构造（正常实例）；验证 skill 对 ITL 槽位的正常判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "ITL槽位检查",
+    "metric": "ITL waits / INITRANS",
+    "target_state": "warning",
+    "judgment_rule": "存在 ini_trans=1 的表或 ITL waits>0 → 提示 ITL 槽位不足风险",
+    "user_input": "有个表并发更新很频繁，帮我查一下 ITL 等待和 INITRANS 设置，评估死锁风险",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "ITL 槽位不足风险",
+      "description": "输出 ini_trans=1 的表清单与 ITL waits>0 的段，提示 ITL 槽位不足死锁风险，建议增大 INITRANS（不实际执行 ALTER TABLE）"
+    },
+    "assertions": [
+      {
+        "name": "ITL 风险判定",
+        "ground_truth_sql": "SELECT owner, table_name, ini_trans FROM dba_tables WHERE ini_trans = 1 AND owner NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若存在 ini_trans=1 的表或 ITL waits>0，则 skill 应提示 ITL 槽位不足风险并给出增大 INITRANS 建议；若均不存在则输出无风险"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "ini_trans=1 的表可构造（建表时指定 INITRANS 1）；验证 skill 对 ITL 风险的判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-13",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "外键无索引检查",
+    "metric": "未索引外键",
+    "target_state": "normal",
+    "judgment_rule": "无 constraint_type='R' 且外键列无索引的记录 → 无 TM 死锁风险",
+    "user_input": "帮我检查一下有没有外键列没建索引，评估 TM 死锁风险",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "无未索引外键",
+      "description": "查询未索引外键列，无记录时输出 TM 死锁风险低结论"
+    },
+    "assertions": [
+      {
+        "name": "未索引外键判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS unindexed_fk FROM all_cons_columns a JOIN all_constraints c ON a.owner = c.owner AND a.constraint_name = c.constraint_name WHERE c.constraint_type = 'R' AND c.owner NOT IN ('SYS','SYSTEM','DBSNMP') AND NOT EXISTS (SELECT 1 FROM all_ind_columns i WHERE i.table_owner = a.owner AND i.table_name = a.table_name AND i.column_name = a.column_name AND i.column_position = 1)",
+        "logic": "若 unindexed_fk=0，则 skill 应输出'无未索引外键，TM 死锁风险低'；若 unindexed_fk>0 则 skill 应列出未索引外键清单，输出与 ground_truth 一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "无未索引外键状态可构造（所有外键列均建索引）；验证 skill 对 TM 风险的正常判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "外键无索引检查",
+    "metric": "未索引外键",
+    "target_state": "warning",
+    "judgment_rule": "存在 constraint_type='R' 且外键列无索引的记录 → 提示 TM 死锁风险",
+    "user_input": "最近老有 TM 死锁，帮我查一下是不是外键没建索引导致的",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "存在未索引外键",
+      "description": "输出未索引外键清单（表名/列名/约束名/父表），提示 TM 死锁风险，建议在外键列建索引（索引创建由索引设计专项技能负责）"
+    },
+    "assertions": [
+      {
+        "name": "未索引外键风险判定",
+        "ground_truth_sql": "SELECT a.table_name, a.column_name, a.constraint_name FROM all_cons_columns a JOIN all_constraints c ON a.owner = c.owner AND a.constraint_name = c.constraint_name WHERE c.constraint_type = 'R' AND c.owner NOT IN ('SYS','SYSTEM','DBSNMP') AND NOT EXISTS (SELECT 1 FROM all_ind_columns i WHERE i.table_owner = a.owner AND i.table_name = a.table_name AND i.column_name = a.column_name AND i.column_position = 1)",
+        "logic": "若存在未索引外键记录，则 skill 应输出对应表/列清单并提示 TM 死锁风险；若为空则输出无风险，输出与 ground_truth 一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "未索引外键可构造（建父表+子表外键但不建索引）；验证 skill 对 TM 风险的判定"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-15",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "参数校验",
+    "metric": "deadlock_type 非法值",
+    "target_state": "normal",
+    "judgment_rule": "deadlock_type 仅接受 all/tx/tm/itl，非法值应被拒绝或回退默认 all",
+    "user_input": "帮我查一下 deadlock_type 为 xyz 的死锁情况",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "xyz"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝或回退默认",
+      "description": "skill 对非法 deadlock_type 应明确拒绝或回退默认 all，输出结构化结果而非异常堆栈"
+    },
+    "assertions": [
+      {
+        "name": "非法参数优雅处理",
+        "ground_truth_sql": "SELECT COUNT(*) AS deadlock_cnt FROM v$sysstat WHERE name = 'enqueue deadlocks'",
+        "logic": "无论 deadlock_cnt 值如何，skill 对非法 deadlock_type 应拒绝并提示合法取值（all/tx/tm/itl）或回退默认 all，输出中不得包含原始异常堆栈"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "非法参数可构造（直接传非法 deadlock_type）；验证 skill 的参数校验逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-16",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接",
+    "metric": "实例连接失败",
+    "target_state": "normal",
+    "judgment_rule": "实例连接失败时，skill 应返回明确连接错误信息，不输出数据库原始异常堆栈",
+    "user_input": "帮我连一下这个实例查一下死锁情况",
+    "params": {
+      "instance_host": "10.255.255.1:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "明确连接错误",
+      "description": "连接不可达时 skill 返回明确连接错误信息（如 ORA-12170 / ORA-12541 或'无法连接'），不输出数据库原始异常堆栈全文"
+    },
+    "assertions": [
+      {
+        "name": "连接失败处理",
+        "ground_truth_sql": "SELECT COUNT(*) AS reachable FROM v$instance",
+        "logic": "若 ground_truth_sql 执行失败（连接不可达），则 skill 应返回明确连接错误信息而非原始异常堆栈；若执行成功则 skill 应正常输出诊断结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "连接失败可构造（指定不可达的 host:port）；验证 skill 的连接错误处理"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-17",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "死锁类型过滤",
+    "metric": "默认参数 all",
+    "target_state": "normal",
+    "judgment_rule": "未指定 deadlock_type 时默认 all，覆盖 TX/TM/ITL 全部类型",
+    "user_input": "帮我查一下当前所有类型的死锁情况",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "覆盖全部类型",
+      "description": "skill 默认覆盖 all 类型、最近 24 小时窗口，输出完整诊断结果"
+    },
+    "assertions": [
+      {
+        "name": "默认覆盖全部类型",
+        "ground_truth_sql": "SELECT COUNT(*) AS deadlock_cnt FROM v$sysstat WHERE name = 'enqueue deadlocks'",
+        "logic": "skill 在默认参数下应覆盖 TX/TM/ITL 全部类型，输出不遗漏任一类型分支，且与 ground_truth 死锁计数一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "默认参数可构造（不传 deadlock_type）；验证 skill 默认行为"
+  },
+  {
+    "skill": "db-oracle-diagnose-deadlock",
+    "skill_version": "v1.0.0",
+    "case_id": "deadlock-18",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "竞争行对象定位",
+    "metric": "ROWID 反解对象",
+    "target_state": "severe",
+    "judgment_rule": "从 trace 的 ROWID / dictionary objn 反解出表名与行数据",
+    "user_input": "死锁 trace 里 ROWID 是 0000A2B3.AAABBB.0001，dictionary objn 是 41651，帮我定位是哪张表的哪一行",
+    "params": {
+      "instance_host": "orcl:1521/ORCLPDB1",
+      "trace_file_path": "/u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_12345.trc",
+      "time_range_hours": "24",
+      "deadlock_type": "all"
+    },
+    "expected_output": {
+      "target_judgment": "定位竞争行对象",
+      "description": "通过 dictionary objn 反查 dba_objects 得到表名，通过 ROWID 查询行数据，输出竞争行对象；ROWID 查询失败时标记'无法解析该行数据'"
+    },
+    "assertions": [
+      {
+        "name": "对象反解正确",
+        "ground_truth_sql": "SELECT owner, object_name, object_type FROM dba_objects WHERE data_object_id = 41651",
+        "logic": "skill 输出的竞争行对象表名应与 dba_objects 中 data_object_id=41651 的 object_name 一致；若该对象不存在则 skill 应标记'无法解析该行数据'而非报错"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制生成真实死锁 trace 的 ROWID/objn；执行 agent 需准备含 ROWID 的 trace 文件并建外部表读取，验证 skill 的对象反解逻辑"
+  }
+]

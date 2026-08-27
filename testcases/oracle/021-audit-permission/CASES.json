@@ -1,0 +1,1372 @@
+[
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-01",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "account_status",
+    "target_state": "normal",
+    "judgment_rule": "账号状态为 OPEN 视为正常，不标记风险项",
+    "user_input": "帮我审计一下数据库里 APP_USER 这个账号当前是什么状态，是不是正常的？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "APP_USER",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "账号状态为 OPEN，账号状态维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "open_account_not_flagged",
+        "ground_truth_sql": "SELECT account_status FROM dba_users WHERE username = 'APP_USER'",
+        "logic": "若实际 account_status = 'OPEN'，则 skill 输出中该账号不应出现在账号状态风险清单中"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造一个状态为 OPEN 的业务账号，验证 skill 不将其标记为风险项"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "account_status",
+    "target_state": "warning",
+    "judgment_rule": "账号状态为 EXPIRED 标记为中危风险项",
+    "user_input": "审计一下 APP_USER 账号，我怀疑它的密码已经过期了，帮我确认下状态并给出风险提示。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "APP_USER",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "账号状态为 EXPIRED，标记为中危，提示密码已过期"
+    },
+    "assertions": [
+      {
+        "name": "expired_account_flagged_medium",
+        "ground_truth_sql": "SELECT account_status FROM dba_users WHERE username = 'APP_USER'",
+        "logic": "若实际 account_status = 'EXPIRED'，则 skill 输出中该账号应被标记为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造状态为 EXPIRED 的账号（ALTER USER ... PASSWORD EXPIRE），验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "account_status",
+    "target_state": "warning",
+    "judgment_rule": "账号状态为 EXPIRED(GRACE) 标记为中危风险项",
+    "user_input": "审计 APP_USER 账号状态，它现在处于密码宽限期，帮我确认并提示风险。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "APP_USER",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "账号状态为 EXPIRED(GRACE)，标记为中危，提示密码在宽限期内需尽快修改"
+    },
+    "assertions": [
+      {
+        "name": "grace_account_flagged_medium",
+        "ground_truth_sql": "SELECT account_status FROM dba_users WHERE username = 'APP_USER'",
+        "logic": "若实际 account_status = 'EXPIRED(GRACE)'，则 skill 输出中该账号应被标记为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造 EXPIRED(GRACE) 状态账号，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-04",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "账号状态审计",
+    "metric": "account_status",
+    "target_state": "low",
+    "judgment_rule": "账号状态为 LOCKED 标记为低危风险项",
+    "user_input": "审计一下 OLD_ADMIN 账号，它应该是被锁定了，帮我确认状态。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "OLD_ADMIN",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "low",
+      "description": "账号状态为 LOCKED，标记为低危，建议确认是否可删除"
+    },
+    "assertions": [
+      {
+        "name": "locked_account_flagged_low",
+        "ground_truth_sql": "SELECT account_status FROM dba_users WHERE username = 'OLD_ADMIN'",
+        "logic": "若实际 account_status = 'LOCKED'，则 skill 输出中该账号应被标记为低危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造 LOCKED 状态账号（ALTER USER ... ACCOUNT LOCK），验证 skill 标记低危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-05",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "账号状态审计",
+    "metric": "default_password",
+    "target_state": "severe",
+    "judgment_rule": "出现在 DBA_USERS_WITH_DEFPWD 的账号仍使用默认密码，标记为高危",
+    "user_input": "帮我检查一下数据库里还有哪些账号在使用默认密码，这是安全审计的重点。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现使用默认密码的账号，标记为高危，建议立即修改或锁定"
+    },
+    "assertions": [
+      {
+        "name": "defpwd_account_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users_with_defpwd WHERE username NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出使用默认密码的账号"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造使用默认密码的账号（如 SCOTT/TIGER），验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-06",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "账号状态审计",
+    "metric": "default_password",
+    "target_state": "normal",
+    "judgment_rule": "无账号使用默认密码视为正常",
+    "user_input": "审计账号状态，确认当前没有账号使用默认密码。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无默认密码账号，账号状态维度无高危项"
+    },
+    "assertions": [
+      {
+        "name": "no_defpwd_not_flagged",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users_with_defpwd WHERE username NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 c = 0，则 skill 输出中不应存在默认密码相关的高危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "确保无默认密码账号，验证 skill 不标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-07",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "账号状态审计",
+    "metric": "sysdba_account",
+    "target_state": "severe",
+    "judgment_rule": "除 SYS 外存在其他 SYSDBA 账户标记为高危",
+    "user_input": "盘点一下数据库里有哪些账号拥有 SYSDBA 特权，除了 SYS 之外还有没有别的？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现非 SYS 的 SYSDBA 账户，标记为高危，逐项说明必要性"
+    },
+    "assertions": [
+      {
+        "name": "non_sys_sysdba_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM v$pwfile_users WHERE sysdba = 'TRUE' AND username <> 'SYS'",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出非 SYS 的 SYSDBA 账户"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造非 SYS 的 SYSDBA 账户（GRANT SYSDBA TO ...），验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-08",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "proxy_user",
+    "target_state": "warning",
+    "judgment_rule": "存在代理用户关系标记为中危",
+    "user_input": "审计一下数据库里的代理用户关系，看看有没有可能绕过权限控制的代理配置。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现代理用户关系，标记为中危，检查代理用户权限"
+    },
+    "assertions": [
+      {
+        "name": "proxy_user_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM proxy_users",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示代理用户关系"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造代理用户关系（ALTER USER ... GRANT CONNECT THROUGH ...），验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-09",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "test_account",
+    "target_state": "warning",
+    "judgment_rule": "生产环境存在 TEST%/DEMO%/TMP% 等测试账号标记为中危",
+    "user_input": "审计一下生产库里有没有残留的测试或演示账号，比如 TEST 开头的。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现测试/演示账号，标记为中危，建议锁定或删除"
+    },
+    "assertions": [
+      {
+        "name": "test_account_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users WHERE username LIKE 'TEST%' OR username LIKE 'DEMO%' OR username LIKE 'TMP%' OR username LIKE 'TEMP%' OR username LIKE 'DEV%'",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，列出测试/演示账号"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造 TEST_DEV 等测试账号，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-10",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "系统权限审计",
+    "metric": "high_risk_sys_priv",
+    "target_state": "severe",
+    "judgment_rule": "非系统账号拥有 ALTER SYSTEM/ALTER DATABASE/GRANT ANY PRIVILEGE/UNLIMITED TABLESPACE 等高危权限标记为高危",
+    "user_input": "帮我筛查一下哪些业务账号拥有 ALTER SYSTEM 这类高危系统权限，准备做权限回收。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现高危系统权限持有者，标记为高危，建议回收"
+    },
+    "assertions": [
+      {
+        "name": "high_risk_sys_priv_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_sys_privs WHERE privilege IN ('ALTER SYSTEM','ALTER DATABASE','GRANT ANY PRIVILEGE','GRANT ANY ROLE','UNLIMITED TABLESPACE','EXEMPT REDACTION POLICY','EXEMPT ACCESS POLICY') AND grantee NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出高危权限持有者"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号并授予 ALTER SYSTEM，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-11",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "系统权限审计",
+    "metric": "high_risk_sys_priv",
+    "target_state": "normal",
+    "judgment_rule": "无业务账号拥有高危系统权限视为正常",
+    "user_input": "审计系统权限，确认没有业务账号持有高危系统权限。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无高危系统权限持有者，系统权限维度无高危项"
+    },
+    "assertions": [
+      {
+        "name": "no_high_risk_sys_priv_not_flagged",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_sys_privs WHERE privilege IN ('ALTER SYSTEM','ALTER DATABASE','GRANT ANY PRIVILEGE','GRANT ANY ROLE','UNLIMITED TABLESPACE','EXEMPT REDACTION POLICY','EXEMPT ACCESS POLICY') AND grantee NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 c = 0，则 skill 输出中不应存在高危系统权限风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "确保无高危系统权限，验证 skill 不标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-12",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "系统权限审计",
+    "metric": "any_privilege",
+    "target_state": "severe",
+    "judgment_rule": "非系统账号拥有 SELECT ANY TABLE/UPDATE ANY TABLE/EXECUTE ANY PROCEDURE 等 ANY 类权限标记为高危",
+    "user_input": "盘点一下哪些账号有 SELECT ANY TABLE 这类 ANY 权限，这能读任意表数据，风险很高。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现 ANY 类权限持有者，标记为高危，建议改为按需授权"
+    },
+    "assertions": [
+      {
+        "name": "any_privilege_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_sys_privs WHERE privilege LIKE '%ANY%' AND grantee NOT IN ('SYS','SYSTEM','DBSNMP','EXP_FULL_DATABASE','IMP_FULL_DATABASE')",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出 ANY 类权限持有者"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号并授予 SELECT ANY TABLE，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-13",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "系统权限审计",
+    "metric": "admin_role",
+    "target_state": "severe",
+    "judgment_rule": "非 SYS/SYSTEM 账号持有 DBA 角色标记为高危",
+    "user_input": "审计一下除了 SYS 和 SYSTEM，还有哪些账号持有 DBA 角色，权限太大了。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现非 SYS/SYSTEM 的 DBA 角色持有者，标记为高危，建议降级"
+    },
+    "assertions": [
+      {
+        "name": "dba_role_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_role_privs WHERE granted_role = 'DBA' AND grantee NOT IN ('SYS','SYSTEM')",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出 DBA 角色持有者"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号并授予 DBA 角色，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-14",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "角色权限审计",
+    "metric": "high_risk_role",
+    "target_state": "warning",
+    "judgment_rule": "非系统账号持有 SELECT_CATALOG_ROLE/IMP_FULL_DATABASE/EXP_FULL_DATABASE/SCHEDULER_ADMIN 等角色标记为中危",
+    "user_input": "审计一下哪些账号持有 SELECT_CATALOG_ROLE 这类能看数据字典的角色。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现高危角色持有者，标记为中危，建议审计必要性"
+    },
+    "assertions": [
+      {
+        "name": "high_risk_role_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_role_privs WHERE granted_role IN ('SELECT_CATALOG_ROLE','IMP_FULL_DATABASE','EXP_FULL_DATABASE','SCHEDULER_ADMIN','DATAPUMP_IMP_FULL_DATABASE','DATAPUMP_EXP_FULL_DATABASE','EM_EXPRESS_ALL','AQ_ADMINISTRATOR_ROLE') AND grantee NOT IN ('SYS','SYSTEM')",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，列出高危角色持有者"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号并授予 SELECT_CATALOG_ROLE，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-15",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "角色权限审计",
+    "metric": "recursive_role",
+    "target_state": "warning",
+    "judgment_rule": "普通角色间接继承 DBA 等高危角色（递归角色继承）标记为中危",
+    "user_input": "帮我展开一下角色继承关系，看看有没有普通角色间接继承了 DBA 这种隐藏权限。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现递归角色继承隐藏权限，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "recursive_role_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM role_role_privs WHERE granted_role = 'DBA'",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示角色间接继承 DBA"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造角色 A 授予角色 B，角色 B 授予 DBA，验证 skill 展开递归继承并标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-16",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "角色权限审计",
+    "metric": "default_role",
+    "target_state": "warning",
+    "judgment_rule": "高危角色（如 DBA）DEFAULT_ROLE=YES 标记为中危",
+    "user_input": "审计一下 DBA 角色是不是被设成了默认启用，这样登录就自动生效，风险高。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现高危角色 DEFAULT_ROLE=YES，标记为中危，建议改为 NO"
+    },
+    "assertions": [
+      {
+        "name": "default_role_yes_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_role_privs WHERE granted_role = 'DBA' AND default_role = 'YES' AND grantee NOT IN ('SYS','SYSTEM')",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示高危角色默认启用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号持有 DBA 且 DEFAULT_ROLE=YES，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-17",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "对象权限审计",
+    "metric": "sensitive_column_priv",
+    "target_state": "warning",
+    "judgment_rule": "敏感列（密码/金额/身份证号等）上的 UPDATE 权限标记为中危",
+    "user_input": "审计一下有没有账号对 SALARY 这种薪资列有 UPDATE 权限，薪资列要严格控制。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现敏感列上的 UPDATE 权限，标记为中危，建议回收"
+    },
+    "assertions": [
+      {
+        "name": "sensitive_col_priv_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_col_privs WHERE privilege = 'UPDATE' AND grantee NOT IN ('SYS','SYSTEM','PUBLIC') AND (column_name LIKE '%PASSWORD%' OR column_name LIKE '%PASSWD%' OR column_name LIKE '%SALARY%' OR column_name LIKE '%ID_CARD%' OR column_name LIKE '%SSN%' OR column_name LIKE '%BANK_CARD%' OR column_name LIKE '%PHONE%' OR column_name LIKE '%EMAIL%')",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，列出敏感列 UPDATE 权限"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造敏感列（如 SALARY）上的 UPDATE 授权，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-18",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "对象权限审计",
+    "metric": "sys_package_execute",
+    "target_state": "severe",
+    "judgment_rule": "非系统账号持有 UTL_FILE/UTL_HTTP/UTL_TCP/UTL_SMTP/DBMS_SCHEDULER 等系统包 EXECUTE 权限标记为高危",
+    "user_input": "审计一下有没有业务账号对 UTL_FILE 这种系统包有 EXECUTE 权限，这能读写服务器文件。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "发现高危系统包 EXECUTE 权限，标记为高危，建议回收"
+    },
+    "assertions": [
+      {
+        "name": "sys_package_execute_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_tab_privs WHERE type = 'PACKAGE' AND owner = 'SYS' AND privilege = 'EXECUTE' AND table_name IN ('UTL_FILE','UTL_HTTP','UTL_TCP','UTL_SMTP','DBMS_SCHEDULER','DBMS_SQL','DBMS_BACKUP_RESTORE') AND grantee NOT IN ('SYS','SYSTEM','DBSNMP','PUBLIC')",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，列出系统包 EXECUTE 权限持有者"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号并授予 UTL_FILE EXECUTE，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-19",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "对象权限审计",
+    "metric": "directory_priv",
+    "target_state": "warning",
+    "judgment_rule": "非系统账号对 DIRECTORY 目录对象拥有 READ/WRITE 权限标记为中危",
+    "user_input": "审计一下有没有账号对目录对象有读写权限，这能读写操作系统文件。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现目录对象权限，标记为中危，检查 DATA_PUMP_DIR 以外的自定义目录授权"
+    },
+    "assertions": [
+      {
+        "name": "directory_priv_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_tab_privs WHERE type = 'DIRECTORY' AND grantee NOT IN ('SYS','SYSTEM','PUBLIC')",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，列出目录对象权限"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号对目录对象的 READ/WRITE 授权，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-20",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "对象权限审计",
+    "metric": "public_priv",
+    "target_state": "warning",
+    "judgment_rule": "PUBLIC 对系统包 EXECUTE 或敏感表 SELECT 权限标记为中危",
+    "user_input": "审计一下授予 PUBLIC 的权限，看看有没有对系统包或敏感表的授权，这会影响所有用户。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现 PUBLIC 权限，标记为中危，重点关注系统包 EXECUTE 与敏感表 SELECT"
+    },
+    "assertions": [
+      {
+        "name": "public_priv_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_tab_privs WHERE grantee = 'PUBLIC' AND (table_name IN ('UTL_FILE','UTL_HTTP','UTL_SMTP','UTL_TCP','DBMS_SCHEDULER') OR privilege = 'SELECT')",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，列出 PUBLIC 权限"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造 PUBLIC 对系统包或敏感表的授权，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-21",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "口令策略审计",
+    "metric": "failed_login_attempts",
+    "target_state": "normal",
+    "judgment_rule": "FAILED_LOGIN_ATTEMPTS 在 [5,10] 区间视为合规",
+    "user_input": "审计一下 DEFAULT Profile 的登录失败次数限制，确认是否在安全基线内。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "FAILED_LOGIN_ATTEMPTS 在 [5,10]，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "failed_login_attempts_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'FAILED_LOGIN_ATTEMPTS'",
+        "logic": "若 limit 为数值且 5 <= TO_NUMBER(limit) <= 10，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 FAILED_LOGIN_ATTEMPTS 为 10，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-22",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "口令策略审计",
+    "metric": "failed_login_attempts",
+    "target_state": "severe",
+    "judgment_rule": "FAILED_LOGIN_ATTEMPTS 为 UNLIMITED 标记为高危（无登录失败次数限制）",
+    "user_input": "审计一下有没有 Profile 把登录失败次数设成了 UNLIMITED，这有暴力破解风险。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "FAILED_LOGIN_ATTEMPTS 为 UNLIMITED，标记为高危，建议改为有限值"
+    },
+    "assertions": [
+      {
+        "name": "failed_login_attempts_unlimited_flagged_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_profiles WHERE resource_type = 'PASSWORD' AND resource_name = 'FAILED_LOGIN_ATTEMPTS' AND limit = 'UNLIMITED'",
+        "logic": "若 c > 0，则 skill 输出中应存在高危风险项，提示 FAILED_LOGIN_ATTEMPTS 为 UNLIMITED"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置某 Profile 的 FAILED_LOGIN_ATTEMPTS 为 UNLIMITED，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-23",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "failed_login_attempts",
+    "target_state": "warning",
+    "judgment_rule": "FAILED_LOGIN_ATTEMPTS 小于 5 标记为中危（过于严格可能影响业务）",
+    "user_input": "审计一下登录失败次数限制，如果设得太小比如 3 次，会不会有问题？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "FAILED_LOGIN_ATTEMPTS 小于 5，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "failed_login_attempts_too_low_flagged_medium",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'FAILED_LOGIN_ATTEMPTS'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) < 5，则 skill 输出中应标记该参数为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 FAILED_LOGIN_ATTEMPTS 为 3，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-24",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "口令策略审计",
+    "metric": "password_life_time",
+    "target_state": "normal",
+    "judgment_rule": "PASSWORD_LIFE_TIME 大于等于 90 天视为合规",
+    "user_input": "审计一下密码有效期设置，确认是否满足 90 天的安全基线。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_LIFE_TIME 大于等于 90，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "password_life_time_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_LIFE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) >= 90，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_LIFE_TIME 为 90，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-25",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "口令策略审计",
+    "metric": "password_life_time",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_LIFE_TIME 为 UNLIMITED 标记为中危（密码永不过期）",
+    "user_input": "审计一下有没有账号的密码有效期是 UNLIMITED，密码永不过期有风险。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_LIFE_TIME 为 UNLIMITED，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_life_time_unlimited_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_profiles WHERE resource_type = 'PASSWORD' AND resource_name = 'PASSWORD_LIFE_TIME' AND limit = 'UNLIMITED'",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示 PASSWORD_LIFE_TIME 为 UNLIMITED"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置某 Profile 的 PASSWORD_LIFE_TIME 为 UNLIMITED，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-26",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_life_time",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_LIFE_TIME 小于 90 天标记为中危",
+    "user_input": "审计一下密码有效期，如果设成 60 天是不是不符合基线？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_LIFE_TIME 小于 90，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_life_time_too_low_flagged_medium",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_LIFE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) < 90，则 skill 输出中应标记该参数为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_LIFE_TIME 为 60，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-27",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_grace_time",
+    "target_state": "normal",
+    "judgment_rule": "PASSWORD_GRACE_TIME 小于等于 7 天视为合规",
+    "user_input": "审计一下密码过期宽限期设置，确认是否在 7 天以内。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_GRACE_TIME 小于等于 7，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "password_grace_time_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_GRACE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) <= 7，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_GRACE_TIME 为 7，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-28",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_grace_time",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_GRACE_TIME 大于 7 天标记为中危",
+    "user_input": "审计一下密码宽限期，如果设成 14 天是不是太长了？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_GRACE_TIME 大于 7，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_grace_time_too_long_flagged_medium",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_GRACE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) > 7，则 skill 输出中应标记该参数为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_GRACE_TIME 为 14，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-29",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_reuse_max",
+    "target_state": "normal",
+    "judgment_rule": "PASSWORD_REUSE_MAX 大于等于 5 视为合规",
+    "user_input": "审计一下密码重用次数限制，确认是否满足基线。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_REUSE_MAX 大于等于 5，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "password_reuse_max_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_REUSE_MAX'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) >= 5，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_REUSE_MAX 为 5，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-30",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_reuse_max",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_REUSE_MAX 小于 5 标记为中危",
+    "user_input": "审计一下密码重用次数，如果设成 2 次是不是不符合基线？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_REUSE_MAX 小于 5，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_reuse_max_too_low_flagged_medium",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_REUSE_MAX'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) < 5，则 skill 输出中应标记该参数为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_REUSE_MAX 为 2，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-31",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_reuse_time",
+    "target_state": "normal",
+    "judgment_rule": "PASSWORD_REUSE_TIME 大于等于 365 天视为合规",
+    "user_input": "审计一下密码重用等待天数，确认是否满足 365 天的基线。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_REUSE_TIME 大于等于 365，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "password_reuse_time_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_REUSE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) >= 365，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_REUSE_TIME 为 365，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-32",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_reuse_time",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_REUSE_TIME 小于 365 天标记为中危",
+    "user_input": "审计一下密码重用等待天数，如果设成 180 天是不是不符合基线？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_REUSE_TIME 小于 365，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_reuse_time_too_low_flagged_medium",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_REUSE_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) < 365，则 skill 输出中应标记该参数为中危风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_REUSE_TIME 为 180，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-33",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "口令策略审计",
+    "metric": "password_lock_time",
+    "target_state": "normal",
+    "judgment_rule": "PASSWORD_LOCK_TIME 大于等于 1 天视为合规",
+    "user_input": "审计一下登录失败后的锁定时间，确认是否满足基线。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_LOCK_TIME 大于等于 1，口令策略维度无风险项"
+    },
+    "assertions": [
+      {
+        "name": "password_lock_time_compliant",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_LOCK_TIME'",
+        "logic": "若 limit 为数值且 TO_NUMBER(limit) >= 1，则 skill 输出中不应标记该参数为风险项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置 DEFAULT Profile 的 PASSWORD_LOCK_TIME 为 1，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-34",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "口令策略审计",
+    "metric": "password_lock_time",
+    "target_state": "warning",
+    "judgment_rule": "PASSWORD_LOCK_TIME 为 UNLIMITED 标记为中危（需管理员手动解锁）",
+    "user_input": "审计一下登录失败锁定时间，如果设成 UNLIMITED 是不是有问题？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "PASSWORD_LOCK_TIME 为 UNLIMITED，标记为中危"
+    },
+    "assertions": [
+      {
+        "name": "password_lock_time_unlimited_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_profiles WHERE resource_type = 'PASSWORD' AND resource_name = 'PASSWORD_LOCK_TIME' AND limit = 'UNLIMITED'",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示 PASSWORD_LOCK_TIME 为 UNLIMITED"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "设置某 Profile 的 PASSWORD_LOCK_TIME 为 UNLIMITED，验证 skill 标记中危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-35",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "口令策略审计",
+    "metric": "password_verify_function",
+    "target_state": "normal",
+    "judgment_rule": "DEFAULT Profile 的 PASSWORD_VERIFY_FUNCTION 非 NULL 视为合规",
+    "user_input": "审计一下 DEFAULT Profile 是否启用了密码复杂度校验函数。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "PASSWORD_VERIFY_FUNCTION 非 NULL，口令策略维度无高危项"
+    },
+    "assertions": [
+      {
+        "name": "password_verify_function_enabled",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_VERIFY_FUNCTION'",
+        "logic": "若 limit 非 NULL，则 skill 输出中不应标记 DEFAULT Profile 密码复杂度缺失"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "为 DEFAULT Profile 设置 PASSWORD_VERIFY_FUNCTION，验证 skill 判定合规"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-36",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "口令策略审计",
+    "metric": "password_verify_function",
+    "target_state": "severe",
+    "judgment_rule": "DEFAULT Profile 的 PASSWORD_VERIFY_FUNCTION 为 NULL 标记为高危（无密码复杂度要求）",
+    "user_input": "审计一下 DEFAULT Profile 的密码复杂度校验，如果没启用是不是高危？",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "PASSWORD_VERIFY_FUNCTION 为 NULL，标记为高危，建议启用复杂度校验"
+    },
+    "assertions": [
+      {
+        "name": "password_verify_function_null_flagged_high",
+        "ground_truth_sql": "SELECT limit FROM dba_profiles WHERE profile = 'DEFAULT' AND resource_name = 'PASSWORD_VERIFY_FUNCTION'",
+        "logic": "若 limit IS NULL，则 skill 输出中应存在高危风险项，提示 DEFAULT Profile 无密码复杂度要求"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "确保 DEFAULT Profile 的 PASSWORD_VERIFY_FUNCTION 为 NULL，验证 skill 标记高危"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-37",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "审计范围",
+    "metric": "audit_scope_account",
+    "target_state": "normal",
+    "judgment_rule": "audit_scope=account 时仅返回账号状态维度",
+    "user_input": "只审计账号状态，帮我看看有哪些账号被锁定或过期了。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告仅包含账号状态维度，不含权限/口令策略维度"
+    },
+    "assertions": [
+      {
+        "name": "scope_account_only",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users",
+        "logic": "skill 输出应仅包含账号状态维度（账号列表/状态/默认密码/SYSDBA/代理/测试账号），不应包含系统权限、角色权限、对象权限、口令策略维度"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 audit_scope=account 执行，验证报告仅覆盖账号状态维度"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-38",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "审计范围",
+    "metric": "audit_scope_privilege",
+    "target_state": "normal",
+    "judgment_rule": "audit_scope=privilege 时仅返回权限维度",
+    "user_input": "只做权限越权排查，审计系统权限、角色权限和对象权限。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告仅包含系统/角色/对象权限维度，不含账号状态与口令策略维度"
+    },
+    "assertions": [
+      {
+        "name": "scope_privilege_only",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_sys_privs",
+        "logic": "skill 输出应仅包含系统权限、角色权限、对象权限维度，不应包含账号状态与口令策略维度"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 audit_scope=privilege 执行，验证报告仅覆盖权限维度"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-39",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "审计范围",
+    "metric": "audit_scope_policy",
+    "target_state": "normal",
+    "judgment_rule": "audit_scope=policy 时仅返回口令策略维度",
+    "user_input": "只审计口令策略，检查密码复杂度、有效期这些设置。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "policy"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告仅包含口令策略维度，不含账号状态与权限维度"
+    },
+    "assertions": [
+      {
+        "name": "scope_policy_only",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_profiles WHERE resource_type = 'PASSWORD'",
+        "logic": "skill 输出应仅包含口令策略维度，不应包含账号状态、系统权限、角色权限、对象权限维度"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 audit_scope=policy 执行，验证报告仅覆盖口令策略维度"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-40",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "审计范围",
+    "metric": "audit_scope_all",
+    "target_state": "normal",
+    "judgment_rule": "audit_scope=all 时返回全部 5 个维度",
+    "user_input": "做一次全面的账号权限安全审计，覆盖所有维度。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告覆盖账号状态、系统权限、角色权限、对象权限、口令策略全部 5 个维度"
+    },
+    "assertions": [
+      {
+        "name": "scope_all_covers_five_dimensions",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users",
+        "logic": "skill 输出应包含账号状态、系统权限、角色权限、对象权限、口令策略全部 5 个维度，并给出综合安全评分"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 audit_scope=all 执行，验证报告覆盖全部 5 个维度"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-41",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "审计范围",
+    "metric": "username_filter",
+    "target_state": "normal",
+    "judgment_rule": "指定 username 时仅审计该用户",
+    "user_input": "只审计 APP_USER 这一个账号的权限情况，其他账号不用管。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "APP_USER",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告仅包含 APP_USER 的审计结果"
+    },
+    "assertions": [
+      {
+        "name": "username_filter_applies",
+        "ground_truth_sql": "SELECT username FROM dba_users WHERE username = 'APP_USER'",
+        "logic": "skill 输出中所有风险项与账号信息应仅针对 APP_USER，不应包含其他账号"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "指定 username=APP_USER 执行，验证报告仅覆盖该用户"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-42",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "审计范围",
+    "metric": "include_sys",
+    "target_state": "normal",
+    "judgment_rule": "include_sys=true 时包含 Oracle 内置系统账号",
+    "user_input": "这次审计把 SYS、SYSTEM 这些内置系统账号也一起包含进来。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "include_sys": true,
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "报告包含 SYS/SYSTEM 等系统账号的审计结果"
+    },
+    "assertions": [
+      {
+        "name": "include_sys_includes_system_accounts",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users WHERE username IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 include_sys=true，则 skill 输出中应包含 SYS/SYSTEM 等系统账号的审计信息"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 include_sys=true 执行，验证报告包含系统账号"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-43",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接与权限",
+    "metric": "connection_failure",
+    "target_state": "error",
+    "judgment_rule": "实例连接失败时返回明确的结构化错误提示，不暴露底层异常栈",
+    "user_input": "帮我审计一下这个数据库的账号权限，连接串是 10.0.0.99:1521/orcl。",
+    "params": {
+      "instance_host": "10.0.0.99:1521/orcl",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "error",
+      "description": "返回结构化连接失败错误提示，不暴露底层异常栈"
+    },
+    "assertions": [
+      {
+        "name": "connection_failure_structured_error",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 应返回明确的连接失败错误提示（如实例不可达/连接超时），输出中不应包含底层异常堆栈或敏感连接信息"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用不可达的实例连接串执行，验证 skill 返回结构化错误而非原始堆栈"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-44",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接与权限",
+    "metric": "insufficient_privilege",
+    "target_state": "error",
+    "judgment_rule": "审计用户缺少 SELECT_CATALOG_ROLE 权限时提示需要的最小查询权限",
+    "user_input": "用这个只读账号审计一下数据库权限，看看能不能查。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "username": "READONLY_USER",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "error",
+      "description": "提示需要 SELECT_CATALOG_ROLE 或 DBA 权限，不向上抛出原始堆栈"
+    },
+    "assertions": [
+      {
+        "name": "insufficient_privilege_hint",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_role_privs WHERE grantee = 'READONLY_USER' AND granted_role IN ('SELECT_CATALOG_ROLE','DBA')",
+        "logic": "若 c = 0（该用户无 SELECT_CATALOG_ROLE/DBA 权限），则 skill 应提示需要最小查询权限，而非抛出原始权限异常堆栈"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用无 SELECT_CATALOG_ROLE 权限的账号执行，验证 skill 提示最小查询权限"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-45",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "invalid_audit_scope",
+    "target_state": "error",
+    "judgment_rule": "非法 audit_scope 参数被拒绝或标记",
+    "user_input": "帮我审计一下数据库，范围设成 'everything' 试试。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "everything"
+    },
+    "expected_output": {
+      "target_judgment": "error",
+      "description": "拒绝非法 audit_scope 值，提示合法取值（all/account/privilege/policy）"
+    },
+    "assertions": [
+      {
+        "name": "invalid_scope_rejected",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 应拒绝或标记 audit_scope='everything' 为非法参数，并提示合法取值，而非静默按默认值执行"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "传入非法 audit_scope 值，验证 skill 拒绝或标记非法参数"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-46",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "系统权限审计",
+    "metric": "direct_sys_priv",
+    "target_state": "warning",
+    "judgment_rule": "业务账号直授系统权限（非通过角色）标记为需关注",
+    "user_input": "审计一下有没有业务账号是直接授予系统权限的，而不是通过角色，这不符合最小权限原则。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "privilege"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现业务账号直授系统权限，标记为需关注，建议改为通过角色授权"
+    },
+    "assertions": [
+      {
+        "name": "direct_sys_priv_flagged",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_sys_privs WHERE grantee NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 c > 0，则 skill 输出中应标记业务账号直授系统权限为需关注项"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "构造业务账号直接授予系统权限（GRANT CREATE SESSION TO ...），验证 skill 标记直授需关注"
+  },
+  {
+    "skill": "db-oracle-audit-permission",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-perm-47",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "账号状态审计",
+    "metric": "zombie_account",
+    "target_state": "warning",
+    "judgment_rule": "存在大量 OPEN 但长期未登录的僵尸账号标记为中危",
+    "user_input": "审计一下有没有长期未登录但还处于 OPEN 状态的僵尸账号，这些账号有安全隐患。",
+    "params": {
+      "instance_host": "<host>:1521/<service>",
+      "audit_scope": "account"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "发现 OPEN 状态长期未登录的僵尸账号，标记为中危，建议锁定或清理"
+    },
+    "assertions": [
+      {
+        "name": "zombie_account_flagged_medium",
+        "ground_truth_sql": "SELECT COUNT(*) AS c FROM dba_users WHERE account_status = 'OPEN' AND last_login < SYSDATE - 180",
+        "logic": "若 c > 0，则 skill 输出中应存在中危风险项，提示僵尸账号"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 last_login 超过 180 天的 OPEN 账号，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  }
+]

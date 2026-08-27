@@ -1,0 +1,908 @@
+[
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-01",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "规范性",
+    "metric": "SELECT * 检测",
+    "target_state": "warning",
+    "judgment_rule": "SQL 中出现 SELECT * 且表列数多于实际使用列 → 中危，建议显式列名",
+    "user_input": "帮我审核这条 SQL 有没有不规范的地方：SELECT * FROM orders WHERE order_id = 1001",
+    "params": {
+      "sql_text": "SELECT * FROM orders WHERE order_id = 1001",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "报告规范性维度应包含 SELECT * 冗余列问题（中危），并给出显式列出所需列的改写建议"
+    },
+    "assertions": [
+      {
+        "name": "select_star_detected",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%SELECT *%' THEN 1 ELSE 0 END AS has_select_star FROM dual",
+        "logic": "has_select_star = 1 时，skill 输出规范性维度必须包含 SELECT * 相关告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "输入 SQL 文本即 ground truth，无需数据库状态；直接以 sql_text 参数执行，验证 skill 是否识别 SELECT * 并给出改写建议"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-02",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "SELECT * 检测",
+    "target_state": "normal",
+    "judgment_rule": "SQL 显式列出所需列 → 不触发 SELECT * 告警",
+    "user_input": "审核这条 SQL：SELECT order_id, user_id, amount FROM orders WHERE order_id = 1001",
+    "params": {
+      "sql_text": "SELECT order_id, user_id, amount FROM orders WHERE order_id = 1001",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "规范性维度不应出现 SELECT * 告警；若存在其它问题仅按实际风险等级输出"
+    },
+    "assertions": [
+      {
+        "name": "no_select_star",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%SELECT *%' THEN 1 ELSE 0 END AS has_select_star FROM dual",
+        "logic": "has_select_star = 0 时，skill 输出不得包含 SELECT * 相关告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "显式列名 SQL，验证 skill 不误报 SELECT *；ground truth 为输入文本本身"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-03",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "规范性",
+    "metric": "缺失 WHERE 条件",
+    "target_state": "severe",
+    "judgment_rule": "DELETE/UPDATE 无 WHERE 条件 → 高危（全表删除/更新风险）",
+    "user_input": "这条 DELETE 语句有问题吗？DELETE FROM orders",
+    "params": {
+      "sql_text": "DELETE FROM orders",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "报告应将该 DELETE 无 WHERE 标记为高危，提示全表删除风险并建议添加 WHERE 条件"
+    },
+    "assertions": [
+      {
+        "name": "delete_without_where",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE 'DELETE%' AND :sql_text NOT LIKE '%WHERE%' THEN 1 ELSE 0 END AS is_delete_no_where FROM dual",
+        "logic": "is_delete_no_where = 1 时，skill 输出必须包含 DELETE 无 WHERE 的高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，无需数据库；验证 skill 对高危 DML 无 WHERE 的识别"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-04",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "缺失 WHERE 条件",
+    "target_state": "normal",
+    "judgment_rule": "DELETE/UPDATE 带 WHERE 条件 → 不触发高危告警",
+    "user_input": "审核这条 DELETE：DELETE FROM orders WHERE order_id = 1001",
+    "params": {
+      "sql_text": "DELETE FROM orders WHERE order_id = 1001",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "不应出现 DELETE 无 WHERE 的高危告警"
+    },
+    "assertions": [
+      {
+        "name": "delete_with_where",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE 'DELETE%' AND :sql_text LIKE '%WHERE%' THEN 1 ELSE 0 END AS is_delete_with_where FROM dual",
+        "logic": "is_delete_with_where = 1 时，skill 输出不得包含 DELETE 无 WHERE 高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "带 WHERE 的 DELETE，验证 skill 不误报高危"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-05",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "规范性",
+    "metric": "隐式类型转换",
+    "target_state": "warning",
+    "judgment_rule": "字符串列与数字常量比较（WHERE varchar_col = 123）→ 中危，索引失效预警",
+    "user_input": "审核这条 SQL，user_id 是 VARCHAR2 类型：SELECT * FROM users WHERE user_id = 123",
+    "params": {
+      "sql_text": "SELECT * FROM users WHERE user_id = 123",
+      "audit_scope": "all",
+      "table_ddl": "CREATE TABLE users (user_id VARCHAR2(20), name VARCHAR2(100))"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性维度应识别 user_id 字符串列与数字 123 比较的隐式类型转换（中危），提示索引失效并建议使用字符串常量"
+    },
+    "assertions": [
+      {
+        "name": "implicit_conversion_detected",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%user_id = 123%' THEN 1 ELSE 0 END AS has_implicit_conv FROM dual",
+        "logic": "has_implicit_conv = 1 时，skill 输出必须包含隐式类型转换告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "结合 table_ddl 提供 user_id 为 VARCHAR2 的上下文，验证 skill 识别字符串列与数字比较的隐式转换"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-06",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "规范性",
+    "metric": "列上函数/运算",
+    "target_state": "warning",
+    "judgment_rule": "WHERE 对索引列使用函数（UPPER(name)）→ 中危，索引失效预警",
+    "user_input": "审核这条 SQL：SELECT * FROM users WHERE UPPER(name) = 'ABC'",
+    "params": {
+      "sql_text": "SELECT * FROM users WHERE UPPER(name) = 'ABC'",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性维度应识别列上函数 UPPER(name) 导致索引失效（中危），建议统一大小写存储或建函数索引"
+    },
+    "assertions": [
+      {
+        "name": "function_on_column",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%UPPER(%' THEN 1 ELSE 0 END AS has_func_on_col FROM dual",
+        "logic": "has_func_on_col = 1 时，skill 输出必须包含列上函数告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 WHERE 列上函数导致的索引失效"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-07",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "命名规范",
+    "target_state": "warning",
+    "judgment_rule": "列别名使用无业务含义的 a/b/t1 → 低危，建议有业务含义",
+    "user_input": "审核这条 SQL 的命名是否规范：SELECT a, b FROM orders o WHERE o.id = 1",
+    "params": {
+      "sql_text": "SELECT a, b FROM orders o WHERE o.id = 1",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性维度应提示列别名 a/b 无业务含义（低危），建议使用有意义的别名"
+    },
+    "assertions": [
+      {
+        "name": "meaningless_alias",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%SELECT a, b%' THEN 1 ELSE 0 END AS has_meaningless_alias FROM dual",
+        "logic": "has_meaningless_alias = 1 时，skill 输出必须包含命名规范告警（低危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对无意义别名的低危提示"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-08",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "全表扫描风险",
+    "target_state": "severe",
+    "judgment_rule": "大表查询条件列无索引 → 高危，全表扫描风险",
+    "user_input": "orders 表有 1000 万行，审核这条 SQL 的性能：SELECT * FROM orders WHERE order_status = 'ACTIVE'",
+    "params": {
+      "sql_text": "SELECT * FROM orders WHERE order_status = 'ACTIVE'",
+      "audit_scope": "all",
+      "business_context": "OLTP 高并发查询"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "性能维度应识别大表 orders 全表扫描风险（高危），提示 order_status 无索引并建议建索引"
+    },
+    "assertions": [
+      {
+        "name": "full_scan_risk",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%WHERE order_status%' THEN 1 ELSE 0 END AS has_where_col FROM dual",
+        "logic": "has_where_col = 1 且业务上下文为 OLTP 大表时，skill 输出必须包含全表扫描风险告警（高危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "结合 business_context 声明大表与 OLTP 场景，验证 skill 对全表扫描风险的识别；索引缺失判断依赖输入上下文"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-09",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "大偏移分页",
+    "target_state": "warning",
+    "judgment_rule": "ROWNUM 分页且偏移量过大 → 中危，建议 keyset 分页",
+    "user_input": "审核这条分页 SQL 的性能：SELECT * FROM (SELECT a.*, ROWNUM rn FROM (SELECT * FROM orders ORDER BY order_id) a WHERE ROWNUM <= 100010) WHERE rn >= 100001",
+    "params": {
+      "sql_text": "SELECT * FROM (SELECT a.*, ROWNUM rn FROM (SELECT * FROM orders ORDER BY order_id) a WHERE ROWNUM <= 100010) WHERE rn >= 100001",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应识别 ROWNUM 大偏移分页（中危），提示需扫描丢弃前 10 万行并建议 keyset 分页"
+    },
+    "assertions": [
+      {
+        "name": "large_offset_pagination",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%ROWNUM%' AND :sql_text LIKE '%100010%' THEN 1 ELSE 0 END AS has_large_offset FROM dual",
+        "logic": "has_large_offset = 1 时，skill 输出必须包含大偏移分页告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 ROWNUM 大偏移分页陷阱"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-10",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "OR 条件滥用",
+    "target_state": "warning",
+    "judgment_rule": "OR 连接不同列 → 中危，建议 UNION ALL",
+    "user_input": "审核这条 SQL 的性能：SELECT * FROM t WHERE a = 1 OR b = 2",
+    "params": {
+      "sql_text": "SELECT * FROM t WHERE a = 1 OR b = 2",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应识别 OR 连接不同列导致索引失效（中危），建议改写为 UNION ALL"
+    },
+    "assertions": [
+      {
+        "name": "or_abuse",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%a = 1 OR b = 2%' THEN 1 ELSE 0 END AS has_or_abuse FROM dual",
+        "logic": "has_or_abuse = 1 时，skill 输出必须包含 OR 条件滥用告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 OR 连接不同列并建议 UNION ALL"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-11",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "NOT IN 子查询",
+    "target_state": "warning",
+    "judgment_rule": "NOT IN 子查询 → 中危，NULL 陷阱 + 性能差，建议 NOT EXISTS",
+    "user_input": "审核这条 SQL 的性能：SELECT * FROM orders WHERE user_id NOT IN (SELECT user_id FROM blacklist)",
+    "params": {
+      "sql_text": "SELECT * FROM orders WHERE user_id NOT IN (SELECT user_id FROM blacklist)",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应识别 NOT IN 子查询（中危），提示 NULL 陷阱与性能问题，建议改写为 NOT EXISTS"
+    },
+    "assertions": [
+      {
+        "name": "not_in_subquery",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%NOT IN (SELECT%' THEN 1 ELSE 0 END AS has_not_in FROM dual",
+        "logic": "has_not_in = 1 时，skill 输出必须包含 NOT IN 子查询告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 NOT IN 子查询并建议 NOT EXISTS"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "绑定变量检测",
+    "target_state": "warning",
+    "judgment_rule": "SQL 中硬编码常量值 → 中危，硬解析风险，建议绑定变量",
+    "user_input": "审核这条 SQL 是否适合高并发场景：SELECT * FROM orders WHERE user_id = 1001",
+    "params": {
+      "sql_text": "SELECT * FROM orders WHERE user_id = 1001",
+      "audit_scope": "all",
+      "business_context": "OLTP 高并发写入"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应识别硬编码值 user_id=1001（中危），提示硬解析风险并建议使用绑定变量"
+    },
+    "assertions": [
+      {
+        "name": "hardcoded_value",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%user_id = 1001%' THEN 1 ELSE 0 END AS has_hardcoded FROM dual",
+        "logic": "has_hardcoded = 1 且业务上下文为 OLTP 时，skill 输出必须包含绑定变量告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "结合 OLTP 业务上下文，验证 skill 识别硬编码值并建议绑定变量"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-13",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全",
+    "metric": "SQL 注入风险",
+    "target_state": "severe",
+    "judgment_rule": "EXECUTE IMMEDIATE 拼接用户输入 → 高危，SQL 注入风险",
+    "user_input": "审核这段 PL/SQL 的安全性：EXECUTE IMMEDIATE 'DELETE FROM ' || p_table || ' WHERE id = ' || p_id",
+    "params": {
+      "sql_text": "EXECUTE IMMEDIATE 'DELETE FROM ' || p_table || ' WHERE id = ' || p_id",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "安全维度应识别 EXECUTE IMMEDIATE 拼接用户输入（高危），提示表名/值注入风险并建议 DBMS_ASSERT + 绑定变量"
+    },
+    "assertions": [
+      {
+        "name": "sql_injection",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%EXECUTE IMMEDIATE%' AND :sql_text LIKE '%||%' THEN 1 ELSE 0 END AS has_injection FROM dual",
+        "logic": "has_injection = 1 时，skill 输出必须包含 SQL 注入高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别动态拼接 SQL 注入高危风险"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "安全",
+    "metric": "敏感数据暴露",
+    "target_state": "warning",
+    "judgment_rule": "SELECT 中出现密码/手机号等敏感列 → 中危，建议脱敏",
+    "user_input": "审核这条 SQL 是否泄露敏感数据：SELECT user_id, password, phone FROM users",
+    "params": {
+      "sql_text": "SELECT user_id, password, phone FROM users",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "安全维度应识别 SELECT 中 password/phone 敏感列暴露（中危），建议脱敏处理"
+    },
+    "assertions": [
+      {
+        "name": "sensitive_data_exposure",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%password%' OR :sql_text LIKE '%phone%' THEN 1 ELSE 0 END AS has_sensitive FROM dual",
+        "logic": "has_sensitive = 1 时，skill 输出必须包含敏感数据暴露告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 SELECT 中敏感列暴露并建议脱敏"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-15",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全",
+    "metric": "密码明文存储",
+    "target_state": "severe",
+    "judgment_rule": "INSERT/UPDATE 中密码字段赋明文值 → 高危，建议哈希存储",
+    "user_input": "审核这条 INSERT 的安全性：INSERT INTO users (id, password) VALUES (1, 'plaintext123')",
+    "params": {
+      "sql_text": "INSERT INTO users (id, password) VALUES (1, 'plaintext123')",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "安全维度应识别密码字段赋明文值（高危），建议使用哈希存储"
+    },
+    "assertions": [
+      {
+        "name": "plaintext_password",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%password%' AND :sql_text LIKE '%VALUES%' THEN 1 ELSE 0 END AS has_plaintext_pwd FROM dual",
+        "logic": "has_plaintext_pwd = 1 时，skill 输出必须包含密码明文存储高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 INSERT 密码明文存储高危风险"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-16",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "安全",
+    "metric": "高危系统包调用",
+    "target_state": "warning",
+    "judgment_rule": "调用 UTL_FILE/UTL_HTTP 等高危系统包 → 中危，检查路径/URL 可控性",
+    "user_input": "审核这段 PL/SQL 是否调用高危系统包：v_file := UTL_FILE.FOPEN('DIR', 'data.txt', 'R')",
+    "params": {
+      "sql_text": "v_file := UTL_FILE.FOPEN('DIR', 'data.txt', 'R')",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "安全维度应识别 UTL_FILE.FOPEN 高危系统包调用（中危），提示文件路径需白名单校验"
+    },
+    "assertions": [
+      {
+        "name": "high_risk_package",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%UTL_FILE%' OR :sql_text LIKE '%UTL_HTTP%' OR :sql_text LIKE '%UTL_SMTP%' OR :sql_text LIKE '%UTL_TCP%' THEN 1 ELSE 0 END AS has_high_risk_pkg FROM dual",
+        "logic": "has_high_risk_pkg = 1 时，skill 输出必须包含高危系统包调用告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别 UTL_FILE 等高危系统包调用"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-17",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全",
+    "metric": "权限操作检测",
+    "target_state": "severe",
+    "judgment_rule": "GRANT DBA / ALL PRIVILEGES → 高危，权限提升风险",
+    "user_input": "审核这条 DCL 语句的安全性：GRANT DBA TO app_user",
+    "params": {
+      "sql_text": "GRANT DBA TO app_user",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "安全维度应识别 GRANT DBA 权限提升（高危），建议细化最小权限"
+    },
+    "assertions": [
+      {
+        "name": "grant_dba",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%GRANT DBA%' OR :sql_text LIKE '%GRANT ALL PRIVILEGES%' THEN 1 ELSE 0 END AS has_grant_dba FROM dual",
+        "logic": "has_grant_dba = 1 时，skill 输出必须包含权限提升高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对 GRANT DBA 权限提升高危风险的识别（权限边界设计重点）"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-18",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全",
+    "metric": "UNION 注入风险",
+    "target_state": "severe",
+    "judgment_rule": "动态拼接 SQL + UNION SELECT → 高危，UNION 注入风险",
+    "user_input": "审核这段 PL/SQL 是否可被 UNION 注入：v_sql := 'SELECT name, age FROM users WHERE id = ' || p_id",
+    "params": {
+      "sql_text": "v_sql := 'SELECT name, age FROM users WHERE id = ' || p_id",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "安全维度应识别动态拼接 SQL 可被追加 UNION SELECT（高危），建议绑定变量与类型校验"
+    },
+    "assertions": [
+      {
+        "name": "union_injection",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%||%' AND :sql_text LIKE '%WHERE id = %' THEN 1 ELSE 0 END AS has_union_inj FROM dual",
+        "logic": "has_union_inj = 1 时，skill 输出必须包含 UNION 注入高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别动态拼接可被 UNION SELECT 注入的高危风险"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-19",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "安全",
+    "metric": "批量操作无事务保护",
+    "target_state": "warning",
+    "judgment_rule": "批量 DML 无 SAVEPOINT/分批 COMMIT → 中危，事务保护缺失",
+    "user_input": "审核这段批量删除是否安全：BEGIN FOR rec IN (SELECT rowid FROM large_table) LOOP DELETE FROM large_table WHERE rowid = rec.rowid; END LOOP; COMMIT; END;",
+    "params": {
+      "sql_text": "BEGIN FOR rec IN (SELECT rowid FROM large_table) LOOP DELETE FROM large_table WHERE rowid = rec.rowid; END LOOP; COMMIT; END;",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "安全维度应识别批量 DML 无 SAVEPOINT/分批 COMMIT（中危），建议分批提交并设置 SAVEPOINT"
+    },
+    "assertions": [
+      {
+        "name": "batch_no_txn",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%FOR rec IN%' AND :sql_text LIKE '%DELETE%' AND :sql_text NOT LIKE '%SAVEPOINT%' THEN 1 ELSE 0 END AS has_batch_no_txn FROM dual",
+        "logic": "has_batch_no_txn = 1 时，skill 输出必须包含批量操作无事务保护告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别批量 DML 无 SAVEPOINT/分批 COMMIT 的事务保护缺失"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-20",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能",
+    "metric": "JOIN 条件与驱动表",
+    "target_state": "warning",
+    "judgment_rule": "JOIN 缺少连接条件（笛卡尔积）→ 中危，笛卡尔积风险",
+    "user_input": "审核这条 JOIN 是否有问题：SELECT * FROM orders o, users u",
+    "params": {
+      "sql_text": "SELECT * FROM orders o, users u",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应识别缺少连接条件的笛卡尔积（中危），建议补充 ON 连接条件"
+    },
+    "assertions": [
+      {
+        "name": "cartesian_product",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%FROM orders o, users u%' AND :sql_text NOT LIKE '%WHERE%' AND :sql_text NOT LIKE '%JOIN%' THEN 1 ELSE 0 END AS has_cartesian FROM dual",
+        "logic": "has_cartesian = 1 时，skill 输出必须包含笛卡尔积告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 识别逗号连接无 ON 条件的笛卡尔积"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-21",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "审核范围",
+    "metric": "audit_scope 过滤",
+    "target_state": "normal",
+    "judgment_rule": "audit_scope=standard 时仅输出规范性问题，不输出性能/安全问题",
+    "user_input": "只做规范性审核，SQL 同时含 SELECT * 和 OR 滥用：SELECT * FROM t WHERE a = 1 OR b = 2",
+    "params": {
+      "sql_text": "SELECT * FROM t WHERE a = 1 OR b = 2",
+      "audit_scope": "standard"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "审核范围限定 standard 时，报告应包含 SELECT * 规范性告警，但不应包含 OR 滥用等性能告警"
+    },
+    "assertions": [
+      {
+        "name": "scope_standard_only",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%SELECT *%' THEN 1 ELSE 0 END AS has_select_star FROM dual",
+        "logic": "has_select_star = 1 时，skill 输出必须包含 SELECT * 告警；同时 audit_scope=standard 时输出不得包含 OR 滥用性能告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "验证 audit_scope 参数对审核维度的过滤边界，确保 standard 不混入性能/安全结论"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-22",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "审核范围",
+    "metric": "audit_scope 过滤",
+    "target_state": "warning",
+    "judgment_rule": "audit_scope=security 时仅输出安全问题，不输出规范性/性能问题",
+    "user_input": "只做安全审核，SQL 同时含 SELECT * 和 password 暴露：SELECT * FROM users WHERE password = 'x'",
+    "params": {
+      "sql_text": "SELECT * FROM users WHERE password = 'x'",
+      "audit_scope": "security"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "审核范围限定 security 时，报告应包含敏感数据暴露安全问题，但不应包含 SELECT * 规范性告警"
+    },
+    "assertions": [
+      {
+        "name": "scope_security_only",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%password%' THEN 1 ELSE 0 END AS has_sensitive FROM dual",
+        "logic": "has_sensitive = 1 时，skill 输出必须包含敏感数据暴露告警；同时 audit_scope=security 时输出不得包含 SELECT * 规范性告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "验证 audit_scope=security 的维度过滤边界，确保不混入规范性结论"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-23",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "输入校验",
+    "metric": "空 SQL 处理",
+    "target_state": "normal",
+    "judgment_rule": "sql_text 为空 → 返回结构化错误提示，不崩溃",
+    "user_input": "审核一条空 SQL",
+    "params": {
+      "sql_text": "",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应返回明确的结构化错误提示（如 SQL 为空），不输出审核报告、不暴露异常栈"
+    },
+    "assertions": [
+      {
+        "name": "empty_sql_error",
+        "ground_truth_sql": "SELECT CASE WHEN LENGTH(:sql_text) = 0 THEN 1 ELSE 0 END AS is_empty FROM dual",
+        "logic": "is_empty = 1 时，skill 输出必须为结构化错误提示而非审核报告"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "验证 skill 对空 sql_text 的异常处理，返回结构化错误而非崩溃"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-24",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "输入校验",
+    "metric": "非法 SQL 处理",
+    "target_state": "normal",
+    "judgment_rule": "SQL 解析失败 → 返回结构化错误提示，不暴露底层异常栈",
+    "user_input": "审核这条无法解析的 SQL：SELEC FROM WHERE",
+    "params": {
+      "sql_text": "SELEC FROM WHERE",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应返回明确的结构化解析错误提示，不暴露底层异常栈"
+    },
+    "assertions": [
+      {
+        "name": "parse_error_handled",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text NOT LIKE 'SELECT%' AND :sql_text NOT LIKE 'INSERT%' AND :sql_text NOT LIKE 'UPDATE%' AND :sql_text NOT LIKE 'DELETE%' THEN 1 ELSE 0 END AS is_unparseable FROM dual",
+        "logic": "is_unparseable = 1 时，skill 输出必须为结构化错误提示，且不得包含底层异常栈信息"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "验证 skill 对无法解析 SQL 的异常处理，返回结构化错误而非异常栈"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-25",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "字段类型选型",
+    "target_state": "warning",
+    "judgment_rule": "金额字段使用 FLOAT/BINARY_FLOAT → 中危，浮点精度丢失，建议 NUMBER(18,2)",
+    "user_input": "审核这张表的字段类型是否合理：CREATE TABLE account (id NUMBER, amount FLOAT)",
+    "params": {
+      "sql_text": "CREATE TABLE account (id NUMBER, amount FLOAT)",
+      "audit_scope": "all",
+      "table_ddl": "CREATE TABLE account (id NUMBER, amount FLOAT)"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性维度应识别金额字段使用 FLOAT（中危），提示浮点精度丢失并建议 NUMBER(18,2)"
+    },
+    "assertions": [
+      {
+        "name": "float_for_money",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%amount FLOAT%' THEN 1 ELSE 0 END AS has_float_money FROM dual",
+        "logic": "has_float_money = 1 时，skill 输出必须包含字段类型选型告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对金额字段 FLOAT 类型选型的评审"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-26",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "性能",
+    "metric": "统计信息新鲜度",
+    "target_state": "warning",
+    "judgment_rule": "涉及表 last_analyzed 超过 7 天或 stale_stats=YES → 低危，统计信息可能过期",
+    "user_input": "审核这条 SQL 前先检查 orders 表统计信息是否新鲜：SELECT * FROM orders WHERE order_id = 1001",
+    "params": {
+      "sql_text": "SELECT * FROM orders WHERE order_id = 1001",
+      "audit_scope": "all",
+      "instance_host": "oracle-prod:1521/ORCLPDB1"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "提供 instance_host 时，性能维度应检查涉及表统计信息新鲜度，若过期则提示建议收集统计信息"
+    },
+    "assertions": [
+      {
+        "name": "stale_stats_check",
+        "ground_truth_sql": "SELECT COUNT(*) AS stale_cnt FROM dba_tab_statistics WHERE owner NOT IN ('SYS','SYSTEM','DBSNMP') AND table_name = 'ORDERS' AND (stale_stats = 'YES' OR last_analyzed < SYSDATE - 7)",
+        "logic": "stale_cnt > 0 时，skill 输出必须包含统计信息可能过期的提示；stale_cnt = 0 时不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 ORDERS 表统计信息过期，读取 dba_tab_statistics 实际值验证判断逻辑；真实环境存在过期统计信息时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-27",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "字符集一致性",
+    "target_state": "warning",
+    "judgment_rule": "JOIN 连接列字符集不一致 → 中危，隐式转换风险",
+    "user_input": "审核这条 JOIN 的字符集是否一致：SELECT * FROM orders o JOIN users u ON o.user_id = u.id",
+    "params": {
+      "sql_text": "SELECT * FROM orders o JOIN users u ON o.user_id = u.id",
+      "audit_scope": "all",
+      "table_ddl": "CREATE TABLE orders (user_id VARCHAR2(20 CHAR)); CREATE TABLE users (id NUMBER)"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性/性能维度应识别 JOIN 连接列类型不一致（user_id VARCHAR2 vs id NUMBER）导致的隐式转换与索引失效"
+    },
+    "assertions": [
+      {
+        "name": "join_type_mismatch",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%JOIN users u ON o.user_id = u.id%' THEN 1 ELSE 0 END AS has_join_mismatch FROM dual",
+        "logic": "has_join_mismatch = 1 且 table_ddl 表明连接列类型不一致时，skill 输出必须包含连接列类型/字符集不一致告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "结合 table_ddl 提供连接列类型上下文，验证 skill 识别 JOIN 连接列类型不一致"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-28",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "性能",
+    "metric": "排序与 GROUP BY 优化",
+    "target_state": "warning",
+    "judgment_rule": "HAVING 过滤可提前到 WHERE → 低危，优化建议",
+    "user_input": "审核这条 GROUP BY 是否可优化：SELECT dept_id, COUNT(*) FROM employees GROUP BY dept_id HAVING dept_id > 10",
+    "params": {
+      "sql_text": "SELECT dept_id, COUNT(*) FROM employees GROUP BY dept_id HAVING dept_id > 10",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "性能维度应提示 HAVING 过滤可提前到 WHERE（低危），减少分组数据量"
+    },
+    "assertions": [
+      {
+        "name": "having_to_where",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%HAVING dept_id > 10%' THEN 1 ELSE 0 END AS has_having FROM dual",
+        "logic": "has_having = 1 时，skill 输出必须包含 HAVING 提前到 WHERE 的优化建议"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对 GROUP BY/HAVING 的优化建议"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-29",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "安全",
+    "metric": "权限操作检测",
+    "target_state": "warning",
+    "judgment_rule": "ALTER USER xxx IDENTIFIED BY / CREATE USER → 中危，可能为后门账户",
+    "user_input": "审核这条 DCL 的安全性：ALTER USER app_user IDENTIFIED BY newpass123",
+    "params": {
+      "sql_text": "ALTER USER app_user IDENTIFIED BY newpass123",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "安全维度应识别 ALTER USER 密码修改（中危），提示确认操作合法性"
+    },
+    "assertions": [
+      {
+        "name": "alter_user",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%ALTER USER%' THEN 1 ELSE 0 END AS has_alter_user FROM dual",
+        "logic": "has_alter_user = 1 时，skill 输出必须包含 ALTER USER 权限操作告警（中危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对 ALTER USER 权限操作的识别（权限边界设计重点）"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-30",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "规范性",
+    "metric": "注释规范",
+    "target_state": "warning",
+    "judgment_rule": "表/列缺少 COMMENT → 低危，注释完整性建议",
+    "user_input": "审核这张表是否缺少注释：CREATE TABLE orders (order_id NUMBER, amount NUMBER)",
+    "params": {
+      "sql_text": "CREATE TABLE orders (order_id NUMBER, amount NUMBER)",
+      "audit_scope": "all",
+      "table_ddl": "CREATE TABLE orders (order_id NUMBER, amount NUMBER)"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "规范性维度应提示表/列缺少 COMMENT（低危），建议补充注释"
+    },
+    "assertions": [
+      {
+        "name": "missing_comment",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text LIKE '%CREATE TABLE%' AND :sql_text NOT LIKE '%COMMENT%' THEN 1 ELSE 0 END AS has_missing_comment FROM dual",
+        "logic": "has_missing_comment = 1 时，skill 输出必须包含注释规范告警（低危）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "纯文本审核，验证 skill 对表/列缺少 COMMENT 的注释规范提示"
+  },
+  {
+    "skill": "db-oracle-audit-sql",
+    "skill_version": "v1.0.0",
+    "case_id": "audit-sql-31",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "综合",
+    "metric": "干净 SQL 综合评分",
+    "target_state": "normal",
+    "judgment_rule": "规范、性能、安全均无明显问题的 SQL → 综合风险评分高（接近 100），无高危告警",
+    "user_input": "审核这条 SQL 的整体质量：SELECT order_id, user_id, amount FROM orders WHERE order_id = :1 AND create_time >= TO_DATE(:2, 'YYYY-MM-DD')",
+    "params": {
+      "sql_text": "SELECT order_id, user_id, amount FROM orders WHERE order_id = :1 AND create_time >= TO_DATE(:2, 'YYYY-MM-DD')",
+      "audit_scope": "all"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "显式列名 + 绑定变量 + 显式 TO_DATE 转换的 SQL，综合风险评分应较高（接近 100），无高危/中危告警"
+    },
+    "assertions": [
+      {
+        "name": "clean_sql_high_score",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text NOT LIKE '%SELECT *%' AND :sql_text LIKE '%:1%' AND :sql_text LIKE '%TO_DATE%' THEN 1 ELSE 0 END AS is_clean FROM dual",
+        "logic": "is_clean = 1 时，skill 输出综合风险评分应较高（>80），且不得包含高危告警"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "验证 skill 对规范 SQL 的综合评分与告警判定，确保不误报"
+  }
+]

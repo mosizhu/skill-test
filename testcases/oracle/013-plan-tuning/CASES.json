@@ -1,0 +1,891 @@
+[
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "SQL定位",
+    "metric": "sql_id 命中共享池",
+    "target_state": "normal",
+    "judgment_rule": "sql_id 存在于 v$sql 时，skill 应基于共享池数据输出完整调优方案（SQL 基本信息 + 执行计划 + 各维度建议）",
+    "user_input": "帮我调优一下这条 SQL，SQL_ID 是 5f3k9x2y7z1ab，它在共享池里，最近跑得很慢，请给出完整调优方案。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出结构化调优方案：SQL 基本信息（执行次数/平均耗时/逻辑读）、执行计划解读、问题诊断、优化建议（高/中/低优先级）、验证与回撤方案"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 存在于共享池",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql WHERE sql_id = '5f3k9x2y7z1ab'",
+        "logic": "IF cnt > 0 THEN skill 应输出基于共享池的完整调优方案（含 SQL 基本信息与执行计划解读），且不报 'SQL_ID 不存在'；ELSE 该用例不适用（sql_id 未命中，属另一分支）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 需先在目标库执行一条可缓存的 SQL 以获取真实 sql_id，或用共享池中已存在的任意 sql_id 替换；断言读取 v$sql 验证命中后，检查 skill 输出是否包含完整方案。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "SQL定位",
+    "metric": "sql_id 不在共享池但存在于 AWR",
+    "target_state": "warning",
+    "judgment_rule": "sql_id 不在 v$sql 但存在于 dba_hist_sqlstat 时，skill 应回退到 AWR 历史查询并输出基于历史数据的调优方案",
+    "user_input": "这条 SQL 已经不在共享池里了，但 AWR 里还有它的历史记录，SQL_ID 是 9a2b3c4d5e6f7，帮我分析一下它的执行计划变化和调优建议。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "9a2b3c4d5e6f7",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应回退到 AWR 历史（dba_hist_sqlstat / DBMS_XPLAN.DISPLAY_AWR），输出历史执行计划与趋势分析，而非直接报错"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 不在共享池但在 AWR",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$sql WHERE sql_id = '9a2b3c4d5e6f7') AS in_shared, (SELECT COUNT(*) FROM dba_hist_sqlstat WHERE sql_id = '9a2b3c4d5e6f7') AS in_awr FROM dual",
+        "logic": "IF in_shared = 0 AND in_awr > 0 THEN skill 应回退到 AWR 历史并输出调优方案（含历史执行计划/趋势），不得报 'SQL_ID 不存在'；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以保证某 sql_id 恰好不在共享池但存在于 AWR；执行 agent 读取实际 in_shared/in_awr 值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "SQL定位",
+    "metric": "sql_id 共享池与 AWR 均不存在",
+    "target_state": "warning",
+    "judgment_rule": "sql_id 在共享池与 AWR 均不存在时，skill 应回退到基于 sql_text 的静态分析",
+    "user_input": "这条 SQL 是新上线的，共享池和 AWR 里都还没有记录，SQL_ID 是 1a2b3c4d5e6f7，请直接根据 SQL 文本帮我做静态调优分析。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "1a2b3c4d5e6f7",
+      "sql_text": "SELECT e.empno, e.ename, d.dname FROM emp e, dept d WHERE e.deptno = d.deptno AND e.sal > 3000",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应提示 sql_id 无运行记录，回退到基于 sql_text 的静态分析（SQL 改写/索引/统计信息建议），而非报错终止"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 共享池与 AWR 均不存在",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$sql WHERE sql_id = '1a2b3c4d5e6f7') AS in_shared, (SELECT COUNT(*) FROM dba_hist_sqlstat WHERE sql_id = '1a2b3c4d5e6f7') AS in_awr FROM dual",
+        "logic": "IF in_shared = 0 AND in_awr = 0 THEN skill 应回退到 sql_text 静态分析并输出改写/索引/统计建议；ELSE 该用例不适用（sql_id 已命中，属其他分支）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用一个随机/不存在的 sql_id 即可构造；断言读取实际命中数验证后，检查 skill 是否回退到静态分析。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-04",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "SQL定位",
+    "metric": "sql_id 与 sql_text 均为空",
+    "target_state": "severe",
+    "judgment_rule": "sql_id 与 sql_text 均为空时，skill 应拒绝并提示必须提供其一",
+    "user_input": "帮我调优一下这条 SQL。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": ""
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 应明确拒绝：提示 sql_id 与 sql_text 不能同时为空，要求提供 SQL_ID 或 SQL 文本，不输出任何调优方案"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 与 sql_text 均为空",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_id IS NULL OR :sql_id = '' THEN 1 ELSE 0 END AS id_empty, CASE WHEN :sql_text IS NULL OR :sql_text = '' THEN 1 ELSE 0 END AS text_empty FROM dual",
+        "logic": "IF id_empty = 1 AND text_empty = 1 THEN skill 应拒绝并提示必须提供 sql_id 或 sql_text，不得输出调优方案；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以空 sql_id 与空 sql_text 调用即可构造；断言验证 skill 是否正确拒绝。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-05",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "SQL定位",
+    "metric": "仅提供 sql_text 静态分析",
+    "target_state": "normal",
+    "judgment_rule": "仅提供 sql_text 时，skill 应基于 SQL 文本做静态分析并输出改写/索引/统计建议",
+    "user_input": "我只有这段 SQL 文本，还没有执行过，帮我做一下静态调优分析，看看有没有改写和索引优化的空间。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM orders o WHERE o.status = 'PENDING' AND o.created_date > SYSDATE - 30 ORDER BY o.created_date DESC",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应基于 sql_text 输出静态调优方案：SQL 改写建议（如分页/排序优化）、索引建议（如 (status, created_date) 复合索引）、统计信息建议"
+    },
+    "assertions": [
+      {
+        "name": "sql_text 非空且 sql_id 为空",
+        "ground_truth_sql": "SELECT CASE WHEN :sql_text IS NOT NULL AND :sql_text != '' THEN 1 ELSE 0 END AS has_text FROM dual",
+        "logic": "IF has_text = 1 THEN skill 应基于 sql_text 输出静态调优方案（含改写与索引建议），不得报 'SQL_ID 不存在' 而终止；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供 sql_text 即可构造；断言验证 skill 是否基于文本输出静态方案。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-06",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "执行计划访问路径",
+    "metric": "INDEX UNIQUE SCAN 最优访问路径",
+    "target_state": "normal",
+    "judgment_rule": "执行计划含 INDEX UNIQUE SCAN 且无全表扫描时，skill 应判定访问路径正常，无需索引优化",
+    "user_input": "这条 SQL 走的是唯一索引扫描，帮我确认一下执行计划是否健康，有没有需要优化的地方。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应解读访问路径为 INDEX UNIQUE SCAN（最优），判定无需索引优化，不输出建索引建议"
+    },
+    "assertions": [
+      {
+        "name": "执行计划含 INDEX UNIQUE SCAN",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql_plan WHERE sql_id = '5f3k9x2y7z1ab' AND operation = 'INDEX' AND options = 'UNIQUE SCAN'",
+        "logic": "IF cnt > 0 THEN skill 应判定访问路径正常（INDEX UNIQUE SCAN 为最优），不输出建索引建议；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造一条走主键/唯一索引等值查询的 SQL 并获取其 sql_id；断言读取 v$sql_plan 验证存在 UNIQUE SCAN 后检查 skill 判定。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-07",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "执行计划访问路径",
+    "metric": "大表全表扫描",
+    "target_state": "warning",
+    "judgment_rule": "执行计划含 TABLE ACCESS FULL 且目标表为大表（>10000 行）时，skill 应标记为需关注并给出索引/分区裁剪建议",
+    "user_input": "这条 SQL 在大表上做了全表扫描，跑得很慢，帮我分析一下访问路径并给出优化建议。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应识别 TABLE ACCESS FULL 并标记为需关注，结合表行数给出建索引或分区裁剪建议"
+    },
+    "assertions": [
+      {
+        "name": "执行计划含大表全表扫描",
+        "ground_truth_sql": "SELECT COUNT(*) AS full_cnt FROM v$sql_plan p WHERE p.sql_id = '5f3k9x2y7z1ab' AND p.operation = 'TABLE ACCESS' AND p.options = 'FULL' AND p.object_owner NOT IN ('SYS','SYSTEM','DBSNMP') AND EXISTS (SELECT 1 FROM dba_tables t WHERE t.owner = p.object_owner AND t.table_name = p.object_name AND t.num_rows > 10000)",
+        "logic": "IF full_cnt > 0 THEN skill 应标记全表扫描为需关注并给出索引/分区裁剪建议；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造一条在大表上无索引过滤的 SQL（如无 WHERE 或 WHERE 列无索引）并获取 sql_id；断言读取 v$sql_plan 与 dba_tables 验证大表全表扫描后检查 skill 建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-08",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "执行计划访问路径",
+    "metric": "笛卡尔积连接",
+    "target_state": "severe",
+    "judgment_rule": "执行计划含 CARTESIAN（MERGE JOIN CARTESIAN）时，skill 应标记为异常并提示补全 JOIN 条件",
+    "user_input": "这条 SQL 的执行计划里出现了笛卡尔积，结果集膨胀得很厉害，帮我确认一下并给出修复建议。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 应识别 CARTESIAN 连接并标记为异常，提示补全 JOIN 条件或检查连接谓词"
+    },
+    "assertions": [
+      {
+        "name": "执行计划含笛卡尔积",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql_plan WHERE sql_id = '5f3k9x2y7z1ab' AND operation = 'MERGE JOIN' AND options = 'CARTESIAN'",
+        "logic": "IF cnt > 0 THEN skill 应标记笛卡尔积为异常并提示补全 JOIN 条件；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造一条无连接条件的交叉连接 SQL（如 FROM t1, t2 无 WHERE 关联）并获取 sql_id；断言读取 v$sql_plan 验证 CARTESIAN 后检查 skill 判定。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-09",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "执行计划访问路径",
+    "metric": "FILTER 子查询未展开",
+    "target_state": "warning",
+    "judgment_rule": "执行计划含 FILTER 操作且 filter_predicates 非空时，skill 应提示子查询未展开并建议 UNNEST 或改写为 JOIN",
+    "user_input": "这条 SQL 的执行计划里有 FILTER 操作，子查询好像没展开，逐行执行很慢，帮我分析一下。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应识别 FILTER 操作并提示子查询未展开，建议 UNNEST Hint 或改写为 JOIN"
+    },
+    "assertions": [
+      {
+        "name": "执行计划含 FILTER 且带谓词",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql_plan WHERE sql_id = '5f3k9x2y7z1ab' AND operation = 'FILTER' AND filter_predicates IS NOT NULL",
+        "logic": "IF cnt > 0 THEN skill 应提示子查询未展开并建议 UNNEST/改写为 JOIN；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 构造一条含相关子查询且优化器未展开的 SQL 并获取 sql_id；断言读取 v$sql_plan 验证 FILTER 后检查 skill 建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-10",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "代价估算偏差",
+    "metric": "E-Rows 与 A-Rows 偏差",
+    "target_state": "warning",
+    "judgment_rule": "执行计划中 E-Rows 与实际 A-Rows 偏差过大（如 >10 倍）时，skill 应标记代价估算偏差并提示统计信息或直方图问题",
+    "user_input": "这条 SQL 的执行计划里优化器估算的行数和实际执行的行数差了很多，帮我分析一下代价估算偏差的原因。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应对比 E-Rows 与 A-Rows，标记代价估算偏差并提示统计信息过期或直方图缺失"
+    },
+    "assertions": [
+      {
+        "name": "E-Rows 与 A-Rows 偏差过大",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(sql_id => '5f3k9x2y7z1ab', cursor_child_no => 0, format => 'ALLSTATS LAST')) WHERE REGEXP_LIKE(plan_table_output, 'E-Rows.*A-Rows')",
+        "logic": "IF cnt > 0 AND 计划中存在 E-Rows 与 A-Rows 偏差 >10 倍的行 THEN skill 应标记代价估算偏差并提示统计信息/直方图问题；ELSE 该用例不适用（需实际偏差数据）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造 E-Rows 与 A-Rows 偏差 >10 倍；执行 agent 读取实际执行计划验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-11",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "SQL改写",
+    "metric": "UNION 转 UNION ALL",
+    "target_state": "normal",
+    "judgment_rule": "SQL 含 UNION 且无需去重时，skill 应建议改写为 UNION ALL 以提升性能",
+    "user_input": "这条 SQL 用了 UNION 去重，但两个分支本来就不会重复，帮我看看能不能改成 UNION ALL 提升性能。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT col1, col2 FROM t1 UNION SELECT col1, col2 FROM t2",
+      "tune_scope": "rewrite"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应识别 UNION 并建议改写为 UNION ALL（无需去重时），给出改写后 SQL 与理由"
+    },
+    "assertions": [
+      {
+        "name": "SQL 文本含 UNION",
+        "ground_truth_sql": "SELECT CASE WHEN INSTR(UPPER(:sql_text), ' UNION ') > 0 AND INSTR(UPPER(:sql_text), ' UNION ALL ') = 0 THEN 1 ELSE 0 END AS has_union FROM dual",
+        "logic": "IF has_union = 1 THEN skill 应建议将 UNION 改写为 UNION ALL 并给出改写后 SQL；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含 UNION 的 sql_text 即可构造；断言验证 skill 是否给出 UNION ALL 改写建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "SQL改写",
+    "metric": "ROWNUM 分页优化",
+    "target_state": "normal",
+    "judgment_rule": "SQL 使用传统 ROWNUM 分页且大表排序时，skill 应建议 OFFSET-FETCH 或分析函数 + 覆盖索引",
+    "user_input": "这条分页 SQL 用了 ROWNUM 嵌套分页，大表排序很慢，帮我看看有没有更好的分页写法。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM (SELECT a.*, ROWNUM rn FROM (SELECT * FROM t ORDER BY create_time DESC) a WHERE ROWNUM <= 100) WHERE rn > 50",
+      "tune_scope": "rewrite"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应识别 ROWNUM 分页并建议 OFFSET-FETCH（12c+）或分析函数 + 覆盖索引，给出改写后 SQL"
+    },
+    "assertions": [
+      {
+        "name": "SQL 文本含 ROWNUM 分页",
+        "ground_truth_sql": "SELECT CASE WHEN INSTR(UPPER(:sql_text), 'ROWNUM') > 0 THEN 1 ELSE 0 END AS has_rownum FROM dual",
+        "logic": "IF has_rownum = 1 THEN skill 应给出分页改写建议（OFFSET-FETCH 或分析函数 + 覆盖索引）；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含 ROWNUM 分页的 sql_text 即可构造；断言验证 skill 是否给出分页改写建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-13",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "SQL改写",
+    "metric": "自连接转分析函数",
+    "target_state": "normal",
+    "judgment_rule": "SQL 用自连接/子查询取每组 TOP N 时，skill 应建议改写为分析函数（RANK/ROW_NUMBER）",
+    "user_input": "这条 SQL 用自连接取每个部门薪资最高的员工，数据量大时很慢，帮我看看能不能用分析函数改写。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT e.* FROM emp e WHERE e.salary = (SELECT MAX(salary) FROM emp WHERE dept_id = e.dept_id)",
+      "tune_scope": "rewrite"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应识别自连接取 TOP N 并建议改写为 RANK()/ROW_NUMBER() 分析函数，给出改写后 SQL"
+    },
+    "assertions": [
+      {
+        "name": "SQL 文本含自连接取 MAX",
+        "ground_truth_sql": "SELECT CASE WHEN INSTR(UPPER(:sql_text), 'MAX(') > 0 AND INSTR(UPPER(:sql_text), 'SELECT') > 0 THEN 1 ELSE 0 END AS has_selfjoin FROM dual",
+        "logic": "IF has_selfjoin = 1 THEN skill 应建议改写为分析函数（RANK/ROW_NUMBER）；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含自连接取 MAX 的 sql_text 即可构造；断言验证 skill 是否给出分析函数改写建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "索引建议",
+    "metric": "全表扫描建索引建议",
+    "target_state": "normal",
+    "judgment_rule": "SQL 在大表上全表扫描且 WHERE 有可索引谓词时，skill 应给出 CREATE INDEX 建议（含列顺序）",
+    "user_input": "这条 SQL 在大表上全表扫描，WHERE 条件里有 status 和 created_date，帮我看看该建什么索引。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM orders WHERE status = 'PENDING' AND created_date > SYSDATE - 30",
+      "tune_scope": "index"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应基于 WHERE 谓词推荐复合索引（等值列 status 在前，范围列 created_date 在后），给出 CREATE INDEX 建议语句"
+    },
+    "assertions": [
+      {
+        "name": "SQL 文本含可索引谓词",
+        "ground_truth_sql": "SELECT CASE WHEN INSTR(UPPER(:sql_text), 'WHERE') > 0 THEN 1 ELSE 0 END AS has_where FROM dual",
+        "logic": "IF has_where = 1 THEN skill 应基于 WHERE 谓词给出 CREATE INDEX 建议（含列顺序）；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含 WHERE 谓词的 sql_text 即可构造；断言验证 skill 是否给出索引建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-15",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "索引建议",
+    "metric": "函数索引建议",
+    "target_state": "normal",
+    "judgment_rule": "SQL 对列应用函数（如 UPPER(col)）导致索引失效时，skill 应建议函数索引",
+    "user_input": "这条 SQL 在 UPPER(ename) 上做等值查询，普通索引用不上，帮我看看怎么建函数索引。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM emp WHERE UPPER(ename) = 'SMITH'",
+      "tune_scope": "index"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应识别函数作用于列并建议函数索引 CREATE INDEX idx_t_upper_col ON t(UPPER(col))"
+    },
+    "assertions": [
+      {
+        "name": "SQL 文本含函数作用于列",
+        "ground_truth_sql": "SELECT CASE WHEN REGEXP_LIKE(UPPER(:sql_text), '(UPPER|LOWER|TRIM|SUBSTR|TO_DATE|TO_CHAR)\\s*\\(') THEN 1 ELSE 0 END AS has_func FROM dual",
+        "logic": "IF has_func = 1 THEN skill 应建议函数索引；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含函数作用于列的 sql_text 即可构造；断言验证 skill 是否给出函数索引建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-16",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "索引建议",
+    "metric": "覆盖索引建议",
+    "target_state": "normal",
+    "judgment_rule": "SQL 查询列可全部纳入索引时，skill 应建议覆盖索引以避免回表",
+    "user_input": "这条 SQL 频繁查询 a、b、c 三列，WHERE 用 a 过滤，帮我看看能不能建覆盖索引避免回表。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT a, b, c FROM t WHERE a = :v",
+      "tune_scope": "index"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应建议覆盖索引 CREATE INDEX idx_t_a_b_c ON t(a, b, c) 以避免回表"
+    },
+    "assertions": [
+      {
+        "name": "SQL 查询列可覆盖",
+        "ground_truth_sql": "SELECT CASE WHEN INSTR(UPPER(:sql_text), 'SELECT') > 0 THEN 1 ELSE 0 END AS has_select FROM dual",
+        "logic": "IF has_select = 1 THEN skill 应评估覆盖索引建议（查询列纳入索引避免回表）；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接提供含 SELECT 列的 sql_text 即可构造；断言验证 skill 是否给出覆盖索引建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-17",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "统计信息",
+    "metric": "统计信息过期",
+    "target_state": "warning",
+    "judgment_rule": "表 last_analyzed 距今超过阈值（如 >7 天）或 stale_stats='YES' 时，skill 应标记统计信息过期并建议刷新",
+    "user_input": "这张订单表最近数据量变化很大，统计信息好像过期了，帮我检查一下新鲜度并给出刷新建议。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM orders WHERE status = 'PENDING'",
+      "tune_scope": "stats",
+      "table_owner": "APP",
+      "table_name": "ORDERS"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应检查表统计信息新鲜度，标记过期并给出 DBMS_STATS.GATHER_TABLE_STATS 刷新建议（仅输出，不执行）"
+    },
+    "assertions": [
+      {
+        "name": "表统计信息过期",
+        "ground_truth_sql": "SELECT CASE WHEN last_analyzed IS NULL OR SYSDATE - last_analyzed > 7 OR stale_stats = 'YES' THEN 1 ELSE 0 END AS is_stale FROM dba_tab_statistics WHERE owner = 'APP' AND table_name = 'ORDERS'",
+        "logic": "IF is_stale = 1 THEN skill 应标记统计信息过期并建议刷新（DBMS_STATS）；ELSE 该用例不适用（统计信息新鲜，属 normal 分支）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造统计信息过期状态；执行 agent 读取实际 last_analyzed/stale_stats 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-18",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "统计信息",
+    "metric": "倾斜列缺直方图",
+    "target_state": "warning",
+    "judgment_rule": "列数据倾斜（num_distinct 少但分布不均）且 histogram='NONE' 时，skill 应建议建立直方图",
+    "user_input": "这张表的 status 列数据很倾斜，但好像没建直方图，优化器估算不准，帮我检查一下。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "",
+      "sql_text": "SELECT * FROM orders WHERE status = 'PENDING'",
+      "tune_scope": "stats",
+      "table_owner": "APP",
+      "table_name": "ORDERS",
+      "column_name": "STATUS"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应检查列直方图，识别倾斜列缺直方图并建议收集直方图（method_opt FOR ALL COLUMNS SIZE AUTO）"
+    },
+    "assertions": [
+      {
+        "name": "倾斜列缺直方图",
+        "ground_truth_sql": "SELECT CASE WHEN histogram = 'NONE' AND num_distinct > 0 AND num_distinct < 500 THEN 1 ELSE 0 END AS need_hist FROM dba_tab_col_statistics WHERE owner = 'APP' AND table_name = 'ORDERS' AND column_name = 'STATUS'",
+        "logic": "IF need_hist = 1 THEN skill 应建议为倾斜列建立直方图；ELSE 该用例不适用（已有直方图或非倾斜，属 normal 分支）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造倾斜列缺直方图状态；执行 agent 读取实际 histogram/num_distinct 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-19",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "绑定变量",
+    "metric": "version_count 过高",
+    "target_state": "warning",
+    "judgment_rule": "SQL 的 version_count 过高（如 >100）时，skill 应提示未使用绑定变量或绑定变量问题并建议改写为绑定变量",
+    "user_input": "这条 SQL 的 version_count 很高，共享池里有很多子游标，帮我分析一下是不是绑定变量的问题。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应检查 version_count，标记过高并提示未使用绑定变量，建议改写为绑定变量"
+    },
+    "assertions": [
+      {
+        "name": "version_count 过高",
+        "ground_truth_sql": "SELECT version_count FROM v$sql WHERE sql_id = '5f3k9x2y7z1ab' AND ROWNUM = 1",
+        "logic": "IF version_count > 100 THEN skill 应提示绑定变量问题并建议改写为绑定变量；ELSE 该用例不适用（version_count 正常，属 normal 分支）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造 version_count>100；执行 agent 读取实际 version_count 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-20",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "绑定变量",
+    "metric": "自适应游标未生效",
+    "target_state": "warning",
+    "judgment_rule": "SQL 存在多个子游标且 is_bind_aware='N' 时，skill 应提示自适应游标共享（ACS）未生效并检查参数",
+    "user_input": "这条 SQL 有多个子游标但 is_bind_aware 是 N，自适应游标好像没生效，帮我检查一下。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应检查子游标 is_bind_aware 状态，标记 ACS 未生效并建议检查 _optimizer_adaptive_cursor_sharing 参数"
+    },
+    "assertions": [
+      {
+        "name": "存在子游标且 is_bind_aware=N",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql WHERE sql_id = '5f3k9x2y7z1ab' AND is_bind_aware = 'N'",
+        "logic": "IF cnt > 0 AND (SELECT COUNT(*) FROM v$sql WHERE sql_id = '5f3k9x2y7z1ab') > 1 THEN skill 应提示 ACS 未生效并建议检查参数；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造多子游标且 is_bind_aware=N 状态；执行 agent 读取实际子游标状态验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-21",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "调优范围",
+    "metric": "tune_scope=plan 仅执行计划分析",
+    "target_state": "normal",
+    "judgment_rule": "tune_scope=plan 时，skill 应仅输出执行计划分析，不输出改写/索引/统计建议",
+    "user_input": "我只想看这条 SQL 的执行计划分析，不需要改写和索引建议，帮我只分析执行计划。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "plan"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应仅输出执行计划解读（访问路径/连接方式/代价偏差），不输出 SQL 改写与索引建议"
+    },
+    "assertions": [
+      {
+        "name": "tune_scope=plan 限定范围",
+        "ground_truth_sql": "SELECT CASE WHEN :tune_scope = 'plan' THEN 1 ELSE 0 END AS is_plan FROM dual",
+        "logic": "IF is_plan = 1 THEN skill 输出应聚焦执行计划分析，不包含 SQL 改写与索引建议章节；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以 tune_scope=plan 调用即可构造；断言验证 skill 输出是否限定在执行计划分析。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-22",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "调优范围",
+    "metric": "tune_scope=index 仅索引建议",
+    "target_state": "normal",
+    "judgment_rule": "tune_scope=index 时，skill 应仅输出索引建议，不输出改写/统计建议",
+    "user_input": "我只想看这条 SQL 的索引建议，帮我只分析索引优化方向。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "index"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应仅输出索引建议（单列/复合/覆盖/函数索引），不输出 SQL 改写与统计信息建议"
+    },
+    "assertions": [
+      {
+        "name": "tune_scope=index 限定范围",
+        "ground_truth_sql": "SELECT CASE WHEN :tune_scope = 'index' THEN 1 ELSE 0 END AS is_index FROM dual",
+        "logic": "IF is_index = 1 THEN skill 输出应聚焦索引建议，不包含 SQL 改写与统计信息建议章节；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以 tune_scope=index 调用即可构造；断言验证 skill 输出是否限定在索引建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-23",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "调优范围",
+    "metric": "非法 tune_scope 值",
+    "target_state": "severe",
+    "judgment_rule": "tune_scope 传入非法值（非 full/plan/rewrite/index/stats/hint）时，skill 应拒绝或回退到默认 full",
+    "user_input": "帮我调优这条 SQL，调优范围设为 optimize。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "optimize"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 应拒绝非法 tune_scope 值并提示合法取值，或明确回退到默认 full，不得静默产生错误行为"
+    },
+    "assertions": [
+      {
+        "name": "tune_scope 为非法值",
+        "ground_truth_sql": "SELECT CASE WHEN :tune_scope NOT IN ('full','plan','rewrite','index','stats','hint') THEN 1 ELSE 0 END AS is_invalid FROM dual",
+        "logic": "IF is_invalid = 1 THEN skill 应拒绝非法 tune_scope 并提示合法取值，或明确回退到默认 full；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以非法 tune_scope 值调用即可构造；断言验证 skill 是否正确拒绝或回退。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-24",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "输出开关",
+    "metric": "include_sql_profile=true",
+    "target_state": "normal",
+    "judgment_rule": "include_sql_profile=true 时，skill 应在方案中包含 SQL Profile 建议（供 DBA 审查）",
+    "user_input": "这条 SQL 执行计划不稳定，帮我调优时把 SQL Profile 的建议也加上，我看看要不要绑定。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full",
+      "include_sql_profile": true
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 应包含 SQL Profile 建议章节（创建/审查/验证/执行步骤），但仅输出建议不执行绑定"
+    },
+    "assertions": [
+      {
+        "name": "include_sql_profile=true",
+        "ground_truth_sql": "SELECT CASE WHEN :include_sql_profile = 1 THEN 1 ELSE 0 END AS include_profile FROM dual",
+        "logic": "IF include_profile = 1 THEN skill 输出应包含 SQL Profile 建议章节；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以 include_sql_profile=true 调用即可构造；断言验证 skill 是否包含 SQL Profile 建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-25",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "输出开关",
+    "metric": "include_sql_rewrite=false",
+    "target_state": "normal",
+    "judgment_rule": "include_sql_rewrite=false 时，skill 应排除 SQL 改写建议",
+    "user_input": "这条 SQL 的写法是业务定死的不能改，帮我调优时不要给 SQL 改写建议，只看其他维度。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full",
+      "include_sql_rewrite": false
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出不应包含 SQL 改写建议章节，但仍输出执行计划/索引/统计等其他维度建议"
+    },
+    "assertions": [
+      {
+        "name": "include_sql_rewrite=false",
+        "ground_truth_sql": "SELECT CASE WHEN :include_sql_rewrite = 0 THEN 1 ELSE 0 END AS exclude_rewrite FROM dual",
+        "logic": "IF exclude_rewrite = 1 THEN skill 输出不应包含 SQL 改写建议章节；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以 include_sql_rewrite=false 调用即可构造；断言验证 skill 是否排除改写建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-26",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "输出开关",
+    "metric": "include_index_advice=false",
+    "target_state": "normal",
+    "judgment_rule": "include_index_advice=false 时，skill 应排除索引建议",
+    "user_input": "索引已经建好了不能动，帮我调优时不要给索引建议，只看其他维度。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full",
+      "include_index_advice": false
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出不应包含索引建议章节，但仍输出执行计划/改写/统计等其他维度建议"
+    },
+    "assertions": [
+      {
+        "name": "include_index_advice=false",
+        "ground_truth_sql": "SELECT CASE WHEN :include_index_advice = 0 THEN 1 ELSE 0 END AS exclude_index FROM dual",
+        "logic": "IF exclude_index = 1 THEN skill 输出不应包含索引建议章节；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接以 include_index_advice=false 调用即可构造；断言验证 skill 是否排除索引建议。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-27",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全边界",
+    "metric": "不执行任何 DDL/DML/ALTER",
+    "target_state": "normal",
+    "judgment_rule": "skill 为 query 级，仅输出建议，不得执行 CREATE INDEX / DBMS_STATS / ALTER SESSION / DBMS_SQLTUNE.ACCEPT / DBMS_SPM 等变更操作",
+    "user_input": "帮我调优这条 SQL，给出完整方案。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 仅输出调优方案与建议，不执行任何 DDL/DML/ALTER/DBMS_STATS/DBMS_SQLTUNE/DBMS_SPM 变更，数据库对象状态保持不变"
+    },
+    "assertions": [
+      {
+        "name": "调用前后无对象变更",
+        "ground_truth_sql": "SELECT COUNT(*) AS idx_cnt FROM dba_indexes WHERE owner = 'APP' AND table_name = 'ORDERS'",
+        "logic": "IF 调用 skill 前后 idx_cnt 一致（无新增/删除索引）AND 无 ALTER SESSION/DBMS_STATS/DBMS_SQLTUNE/DBMS_SPM 执行痕迹 THEN skill 未执行任何变更，符合 query 级安全边界；ELSE 该用例失败（skill 越权执行变更）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 在调用 skill 前后分别读取 dba_indexes 计数对比，并检查会话是否产生 DDL/DML/ALTER 痕迹；断言验证 skill 仅输出建议不执行变更。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-28",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "异常处理",
+    "metric": "绑定变量视图权限不足",
+    "target_state": "warning",
+    "judgment_rule": "v$sql_bind_capture 等视图权限不足返回空时，skill 应标记'权限不足，跳过绑定变量分析'而非报错",
+    "user_input": "帮我调优这条 SQL，看看绑定变量有没有问题。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "5f3k9x2y7z1ab",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应优雅处理权限不足：标记'权限不足，跳过绑定变量分析'，其余维度正常输出，不中断"
+    },
+    "assertions": [
+      {
+        "name": "绑定变量视图权限不足",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql_bind_capture WHERE sql_id = '5f3k9x2y7z1ab'",
+        "logic": "IF cnt = 0 AND 当前用户无 v$sql_bind_capture 查询权限 THEN skill 应标记'权限不足，跳过绑定变量分析'并继续输出其他维度；ELSE 该用例不适用（有权限，属正常分支）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制构造权限不足状态；执行 agent 读取实际查询结果验证判断逻辑，真实环境存在该状态时自动覆盖对应分支。"
+  },
+  {
+    "skill": "db-oracle-plan-tuning",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-tuning-29",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "异常处理",
+    "metric": "执行计划获取失败",
+    "target_state": "warning",
+    "judgment_rule": "共享池与 AWR 均无法获取执行计划时，skill 应输出'无法获取执行计划'并回退到静态分析，而非报错终止",
+    "user_input": "这条 SQL 的执行计划获取不到，帮我看看能不能基于 SQL 文本做静态分析。",
+    "params": {
+      "instance_host": "oracle-prod:1521/ORCLPDB1",
+      "sql_id": "1a2b3c4d5e6f7",
+      "sql_text": "SELECT e.empno, e.ename FROM emp e WHERE e.deptno = 10",
+      "tune_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 应提示无法获取执行计划，回退到基于 sql_text 的静态分析并输出改写/索引建议，不中断"
+    },
+    "assertions": [
+      {
+        "name": "共享池与 AWR 均无执行计划",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$sql_plan WHERE sql_id = '1a2b3c4d5e6f7') AS in_shared_plan, (SELECT COUNT(*) FROM dba_hist_sqltext WHERE sql_id = '1a2b3c4d5e6f7') AS in_awr FROM dual",
+        "logic": "IF in_shared_plan = 0 AND in_awr = 0 THEN skill 应输出'无法获取执行计划'并回退到 sql_text 静态分析；ELSE 该用例不适用"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用一个不存在的 sql_id 即可构造；断言验证 skill 是否优雅回退到静态分析而非报错。"
+  }
+]

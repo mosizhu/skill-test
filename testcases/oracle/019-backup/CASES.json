@@ -1,0 +1,844 @@
+[
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "前置检查",
+    "metric": "数据库状态与归档模式",
+    "target_state": "normal",
+    "judgment_rule": "open_mode=OPEN 且 log_mode=ARCHIVELOG 时判定为可执行在线备份",
+    "user_input": "准备对生产库做一次全量备份，先帮我确认前置条件：数据库是否处于 OPEN 状态、是否已开启归档模式。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出前置检查结果，报告数据库 OPEN、ARCHIVELOG 模式，允许执行在线全量备份"
+    },
+    "assertions": [
+      {
+        "name": "open_mode_is_open",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode = 'OPEN' 时，skill 应判定为可执行在线备份（normal）；否则应提示状态限制"
+      },
+      {
+        "name": "log_mode_is_archivelog",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "log_mode = 'ARCHIVELOG' 时，skill 应允许在线备份；否则应提示无法执行在线备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境若为 OPEN+ARCHIVELOG 可直接构造；若为其他状态，读取实际值验证判断逻辑分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "前置检查",
+    "metric": "数据库状态",
+    "target_state": "warning",
+    "judgment_rule": "open_mode=MOUNTED 时仅部分备份类型可执行，判定为 warning",
+    "user_input": "数据库当前处于 MOUNT 状态，我想做全量备份，能执行吗？",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 提示数据库处于 MOUNT 状态，仅部分备份类型可执行，需确认或调整"
+    },
+    "assertions": [
+      {
+        "name": "open_mode_is_mounted",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode = 'MOUNTED' 时，skill 应提示当前状态限制（warning），不得静默执行在线全量备份"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 MOUNT 状态，读取实际 open_mode 验证判断逻辑；真实环境处于 MOUNT 时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "前置检查",
+    "metric": "数据库状态",
+    "target_state": "severe",
+    "judgment_rule": "open_mode=NOMOUNT 时无法执行备份，判定为 severe",
+    "user_input": "数据库处于 NOMOUNT 状态，帮我执行全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝执行，提示数据库处于 NOMOUNT 状态无法备份"
+    },
+    "assertions": [
+      {
+        "name": "open_mode_is_nomount",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode = 'NOMOUNT' 时，skill 应拒绝执行备份并提示状态限制（severe）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 NOMOUNT 状态，读取实际 open_mode 验证判断逻辑；真实环境处于 NOMOUNT 时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-04",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "前置检查",
+    "metric": "归档模式",
+    "target_state": "severe",
+    "judgment_rule": "log_mode=NOARCHIVELOG 时无法执行在线备份，判定为 severe",
+    "user_input": "数据库是 NOARCHIVELOG 模式，帮我做在线全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝执行在线备份，提示需先开启归档模式"
+    },
+    "assertions": [
+      {
+        "name": "log_mode_is_noarchivelog",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "log_mode = 'NOARCHIVELOG' 时，skill 应拒绝在线备份并提示先开启归档模式（severe）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 NOARCHIVELOG（需改库参数），读取实际 log_mode 验证判断逻辑；真实环境为 NOARCHIVELOG 时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-05",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "前置检查",
+    "metric": "备份路径空间",
+    "target_state": "warning",
+    "judgment_rule": "备份目标路径可用空间不足（<1.5 倍数据库大小）时判定为 warning",
+    "user_input": "备份目录 /backup 空间快满了，还能做全量备份吗？",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "backup_path": "/backup"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 提示备份路径空间不足，建议清理空间或更换目标路径，不强制执行"
+    },
+    "assertions": [
+      {
+        "name": "backup_path_space_sufficient",
+        "ground_truth_sql": "SELECT SUM(bytes)/1024/1024/1024 AS db_gb FROM v$datafile",
+        "logic": "当备份路径可用空间 < 1.5 * 数据库大小 时，skill 应提示空间不足（warning）并停止执行；空间充足时应允许执行"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制磁盘空间不足，读取实际空间与库大小对比验证判断逻辑；真实环境空间不足时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-06",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "备份执行",
+    "metric": "全量备份",
+    "target_state": "normal",
+    "judgment_rule": "BACKUP DATABASE 完成后 v$rman_backup_job_details 出现 status=COMPLETED 的 FULL 记录",
+    "user_input": "对生产库做一次全量备份，备份到磁盘 /backup，并行度 4，备份完成后交叉检查。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "backup_dest": "disk",
+      "backup_path": "/backup",
+      "parallelism": 4
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出备份执行摘要（类型/起止时间/耗时/状态 COMPLETED）与备份集详情"
+    },
+    "assertions": [
+      {
+        "name": "full_backup_completed",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE input_type='DB FULL' AND status='COMPLETED' AND start_time > SYSDATE - 1",
+        "logic": "cnt >= 1 时，skill 应报告全量备份成功（normal）；cnt = 0 时不得报告成功"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实全量备份构造；若环境禁止写操作，读取最近备份记录验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-07",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "备份执行",
+    "metric": "增量 LEVEL 0 基准备份",
+    "target_state": "normal",
+    "judgment_rule": "INCREMENTAL LEVEL 0 完成后 v$backup_set 出现 incremental_level=0 的备份集",
+    "user_input": "做一次增量 LEVEL 0 基准备份，作为后续增量策略的基准。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "incr0",
+      "backup_dest": "disk",
+      "backup_path": "/backup"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出 LEVEL 0 基准备份执行摘要与备份集详情（incremental_level=0）"
+    },
+    "assertions": [
+      {
+        "name": "incr0_backup_created",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE incremental_level=0 AND status='A' AND completion_time > SYSDATE - 1",
+        "logic": "cnt >= 1 时，skill 应报告 LEVEL 0 基准备份成功（normal）；cnt = 0 时不得报告成功"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实 LEVEL 0 备份构造；若环境禁止写操作，读取最近备份记录验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-08",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份执行",
+    "metric": "差异增量 LEVEL 1",
+    "target_state": "normal",
+    "judgment_rule": "INCREMENTAL LEVEL 1 DIFFERENTIAL 完成后 v$backup_set 出现 incremental_level=1 且 incremental_type='D' 的备份集",
+    "user_input": "做一次差异增量备份（LEVEL 1 DIFFERENTIAL），备份自上次 LEVEL 0 或 LEVEL 1 以来的变化块。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "incr1_diff",
+      "backup_dest": "disk",
+      "backup_path": "/backup"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出差异增量备份执行摘要与备份集详情（incremental_level=1, incremental_type='D'）"
+    },
+    "assertions": [
+      {
+        "name": "incr1_diff_backup_created",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE incremental_level=1 AND incremental_type='D' AND status='A' AND completion_time > SYSDATE - 1",
+        "logic": "cnt >= 1 时，skill 应报告差异增量备份成功（normal）；cnt = 0 时不得报告成功"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实差异增量备份构造；若环境禁止写操作，读取最近备份记录验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-09",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份执行",
+    "metric": "累积增量 LEVEL 1",
+    "target_state": "normal",
+    "judgment_rule": "INCREMENTAL LEVEL 1 CUMULATIVE 完成后 v$backup_set 出现 incremental_level=1 且 incremental_type='C' 的备份集",
+    "user_input": "做一次累积增量备份（LEVEL 1 CUMULATIVE），备份自上次 LEVEL 0 以来的所有变化块。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "incr1_cuml",
+      "backup_dest": "disk",
+      "backup_path": "/backup"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出累积增量备份执行摘要与备份集详情（incremental_level=1, incremental_type='C'）"
+    },
+    "assertions": [
+      {
+        "name": "incr1_cuml_backup_created",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE incremental_level=1 AND incremental_type='C' AND status='A' AND completion_time > SYSDATE - 1",
+        "logic": "cnt >= 1 时，skill 应报告累积增量备份成功（normal）；cnt = 0 时不得报告成功"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实累积增量备份构造；若环境禁止写操作，读取最近备份记录验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-10",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份执行",
+    "metric": "归档日志备份",
+    "target_state": "normal",
+    "judgment_rule": "BACKUP ARCHIVELOG 完成后 v$rman_backup_job_details 出现 ARCHIVELOG 记录且未备份归档数量下降",
+    "user_input": "做一次归档日志备份，备份所有归档日志并删除已备份的归档释放空间。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "archivelog",
+      "backup_dest": "disk",
+      "backup_path": "/backup"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 输出归档日志备份执行摘要，报告已备份并删除的归档数量"
+    },
+    "assertions": [
+      {
+        "name": "archivelog_backup_completed",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE input_type='ARCHIVELOG' AND status='COMPLETED' AND start_time > SYSDATE - 1",
+        "logic": "cnt >= 1 时，skill 应报告归档日志备份成功（normal）；cnt = 0 时不得报告成功"
+      },
+      {
+        "name": "unbacked_archivelog_reduced",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$archived_log WHERE backed_up='NO' AND deleted='NO'",
+        "logic": "备份执行后未备份归档数量应下降；若执行后数量未下降，skill 不得报告归档已全部备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实归档日志备份构造；若环境禁止写操作，读取最近备份记录验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-11",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份执行",
+    "metric": "磁带备份",
+    "target_state": "normal",
+    "judgment_rule": "backup_dest=tape 时使用 SBT_TAPE 通道执行备份",
+    "user_input": "把全量备份写到磁带介质，用于长期归档与异地容灾。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "backup_dest": "tape",
+      "parallelism": 2
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 配置 SBT_TAPE 通道并执行全量备份，输出备份执行摘要"
+    },
+    "assertions": [
+      {
+        "name": "tape_backup_configured",
+        "ground_truth_sql": "SELECT value FROM v$rman_configuration WHERE name='DEVICE TYPE'",
+        "logic": "backup_dest=tape 时，skill 应配置 SBT_TAPE 设备类型；若仍使用 DISK 则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若无磁带设备无法构造，读取 RMAN 配置验证判断逻辑；真实环境有磁带时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份校验",
+    "metric": "备份集校验 VALIDATE",
+    "target_state": "normal",
+    "judgment_rule": "VALIDATE BACKUPSET 执行后无 ORA- 错误即判定校验通过",
+    "user_input": "校验最近的全量备份集是否可恢复，验证备份集数据完整性。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "validate"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 执行备份校验，报告校验通过或失败原因"
+    },
+    "assertions": [
+      {
+        "name": "validate_no_error",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status='A' AND completion_time > SYSDATE - 7",
+        "logic": "存在可校验的备份集时，skill 应执行校验并报告结果；校验失败时应输出失败原因而非静默通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实备份校验构造；若环境禁止写操作，读取备份集状态验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-13",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份校验",
+    "metric": "交叉检查 CROSSCHECK",
+    "target_state": "normal",
+    "judgment_rule": "CROSSCHECK BACKUP 执行后备份集状态与物理文件存在性一致",
+    "user_input": "对备份做一次交叉检查，确认备份物理文件是否都存在。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "crosscheck"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 执行 CROSSCHECK BACKUP 与 CROSSCHECK ARCHIVELOG ALL，报告交叉检查结果"
+    },
+    "assertions": [
+      {
+        "name": "crosscheck_executed",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status IN ('A','X')",
+        "logic": "交叉检查后备份集状态应为 A（可用）或 X（过期/缺失）；skill 应报告交叉检查结果而非跳过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可执行真实交叉检查构造；若环境禁止写操作，读取备份集状态验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-14",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "delete_obsolete 默认不清理",
+    "target_state": "normal",
+    "judgment_rule": "delete_obsolete=false（默认）时不得执行 DELETE OBSOLETE/EXPIRED",
+    "user_input": "做一次全量备份，备份完成后不要清理过期备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "delete_obsolete": false
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 仅执行备份，不执行 DELETE OBSOLETE/EXPIRED 清理操作"
+    },
+    "assertions": [
+      {
+        "name": "no_delete_obsolete_when_false",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status='X' AND completion_time > SYSDATE - 1",
+        "logic": "delete_obsolete=false 时，skill 不得删除任何备份集；若过期备份被删除则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证 delete_obsolete=false 时 skill 不执行清理操作"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-15",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "delete_obsolete 需人工确认",
+    "target_state": "warning",
+    "judgment_rule": "delete_obsolete=true 时 DELETE OBSOLETE/EXPIRED 需明确人工确认后才执行",
+    "user_input": "备份完成后清理过期备份，释放空间。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "delete_obsolete": true
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 在执行 DELETE OBSOLETE/EXPIRED 前要求人工确认，未确认不得执行"
+    },
+    "assertions": [
+      {
+        "name": "delete_obsolete_requires_confirmation",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status='X'",
+        "logic": "delete_obsolete=true 时，skill 必须先获得人工确认才执行清理；未确认时不得删除任何备份集"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证 delete_obsolete=true 时 skill 是否要求人工确认，未确认不得执行清理"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-16",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "未确认 DELETE EXPIRED",
+    "target_state": "severe",
+    "judgment_rule": "未设置 delete_obsolete=true 时 DELETE EXPIRED BACKUP 必须被拒绝",
+    "user_input": "直接删除所有过期备份，不用确认，马上执行。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "delete_obsolete": false
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝执行未确认的 DELETE EXPIRED，提示需设置 delete_obsolete=true 并人工确认"
+    },
+    "assertions": [
+      {
+        "name": "delete_expired_rejected_without_confirm",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status='X'",
+        "logic": "delete_obsolete=false 时，skill 必须拒绝 DELETE EXPIRED；若过期备份被删除则判定为严重缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证未确认时 skill 拒绝 DELETE EXPIRED 清理操作"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-17",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "非法 backup_type",
+    "target_state": "severe",
+    "judgment_rule": "backup_type 不在枚举（full/incr0/incr1_diff/incr1_cuml/archivelog/validate/crosscheck/status）内时拒绝执行",
+    "user_input": "做一次 incremental 类型的备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "incremental"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝非法 backup_type，提示支持的备份类型枚举"
+    },
+    "assertions": [
+      {
+        "name": "invalid_backup_type_rejected",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 1",
+        "logic": "backup_type 为非法值时，skill 不得执行任何备份；若产生了备份记录则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证非法 backup_type 被拒绝且不产生备份"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-18",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "非法 parallelism",
+    "target_state": "severe",
+    "judgment_rule": "parallelism 非正整数（<=0 或超系统限制）时拒绝执行",
+    "user_input": "并行度设为 0 做全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "parallelism": 0
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝非法 parallelism，提示通道数必须为正整数"
+    },
+    "assertions": [
+      {
+        "name": "invalid_parallelism_rejected",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 1",
+        "logic": "parallelism<=0 时，skill 不得执行备份；若产生了备份记录则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证非法 parallelism 被拒绝且不产生备份"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-19",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "参数校验",
+    "metric": "非法 compression",
+    "target_state": "severe",
+    "judgment_rule": "compression 不在枚举（BASIC/LOW/MEDIUM/HIGH/空）内时拒绝执行",
+    "user_input": "压缩算法用 SUPER 做全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "compression": "SUPER"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 拒绝非法 compression，提示支持的压缩算法枚举"
+    },
+    "assertions": [
+      {
+        "name": "invalid_compression_rejected",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 1",
+        "logic": "compression 为非法值时，skill 不得执行备份；若产生了备份记录则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；验证非法 compression 被拒绝且不产生备份"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-20",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "备份窗口超时",
+    "target_state": "warning",
+    "judgment_rule": "duration_minutes>0 且备份耗时超过窗口时判定为 warning，提示部分备份未完成",
+    "user_input": "备份窗口限制 30 分钟，超时自动中断，帮我做全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full",
+      "duration_minutes": 30
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "skill 在备份窗口超时后中断，提示部分备份未完成，下次可继续"
+    },
+    "assertions": [
+      {
+        "name": "backup_window_timeout_handled",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE status='RUNNING' AND start_time > SYSDATE - 1",
+        "logic": "duration_minutes 超时后，skill 应中断备份并提示部分未完成；不得报告全部成功"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备份超时，读取备份作业状态验证判断逻辑；真实环境超时时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-21",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份状态",
+    "metric": "未备份归档日志数量",
+    "target_state": "normal",
+    "judgment_rule": "未备份归档日志数量=0 时判定为 normal",
+    "user_input": "查一下当前有没有未备份的归档日志。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 报告未备份归档日志数量为 0，归档备份状态健康"
+    },
+    "assertions": [
+      {
+        "name": "unbacked_archivelog_zero",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$archived_log WHERE backed_up='NO' AND deleted='NO'",
+        "logic": "cnt = 0 时，skill 应判定为 normal；cnt > 0 时不得报告无未备份归档"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；读取实际未备份归档数量验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-22",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "备份状态",
+    "metric": "未备份归档日志数量",
+    "target_state": "severe",
+    "judgment_rule": "未备份归档日志数量超过阈值（如 >100）时判定为 severe，提示归档积压",
+    "user_input": "归档日志积压了很多，查一下有多少没备份，需要紧急处理吗？",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 报告未备份归档日志数量超阈值，提示归档积压需紧急备份清理"
+    },
+    "assertions": [
+      {
+        "name": "unbacked_archivelog_high",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$archived_log WHERE backed_up='NO' AND deleted='NO'",
+        "logic": "cnt 超过阈值时，skill 应判定为 severe 并提示归档积压；cnt 低于阈值时不得误报 severe"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造（生成归档日志）；读取实际未备份归档数量验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-23",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份状态",
+    "metric": "备份成功率",
+    "target_state": "normal",
+    "judgment_rule": "最近 30 天备份成功率 >= 阈值（如 95%）时判定为 normal",
+    "user_input": "查一下最近 30 天的备份成功率。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 报告最近 30 天备份成功率，健康状态为 normal"
+    },
+    "assertions": [
+      {
+        "name": "backup_success_rate_high",
+        "ground_truth_sql": "SELECT ROUND(SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS rate FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 30",
+        "logic": "rate >= 95 时，skill 应判定为 normal；rate 低于阈值时不得报告健康"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；读取实际备份成功率验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-24",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "备份状态",
+    "metric": "备份成功率",
+    "target_state": "severe",
+    "judgment_rule": "最近 30 天备份成功率低于阈值（如 <95%）时判定为 severe，提示备份异常",
+    "user_input": "最近备份经常失败，查一下成功率，是不是有问题？",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 报告备份成功率低于阈值，提示备份异常需排查"
+    },
+    "assertions": [
+      {
+        "name": "backup_success_rate_low",
+        "ground_truth_sql": "SELECT ROUND(SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS rate FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 30",
+        "logic": "rate < 95 时，skill 应判定为 severe 并提示备份异常；rate 高于阈值时不得误报 severe"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备份失败率，读取实际成功率验证判断逻辑；真实环境成功率低时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-25",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接",
+    "metric": "连接失败",
+    "target_state": "severe",
+    "judgment_rule": "目标实例连接失败时判定为 severe，报告连接错误",
+    "user_input": "连不上目标实例，帮我做全量备份。",
+    "params": {
+      "instance_host": "invalid-host:1521/nonexistent",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 报告连接失败，不执行备份，输出错误信息"
+    },
+    "assertions": [
+      {
+        "name": "connection_failure_reported",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 1",
+        "logic": "连接失败时，skill 不得执行备份；若产生了备份记录则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造（使用无效连接串）；验证连接失败时 skill 正确报告且不执行备份"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-26",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "权限",
+    "metric": "权限不足",
+    "target_state": "severe",
+    "judgment_rule": "连接账号无 RMAN 备份权限时判定为 severe，报告权限不足",
+    "user_input": "用只读账号做全量备份。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "full"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "skill 报告权限不足，无法执行备份，输出权限错误信息"
+    },
+    "assertions": [
+      {
+        "name": "permission_denied_reported",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$rman_backup_job_details WHERE start_time > SYSDATE - 1",
+        "logic": "权限不足时，skill 不得执行备份；若产生了备份记录则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造（使用低权限账号）；验证权限不足时 skill 正确报告且不执行备份"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-27",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份状态",
+    "metric": "备份集清单查询",
+    "target_state": "normal",
+    "judgment_rule": "最近 7 天备份集清单可正常查询并返回备份集详情",
+    "user_input": "查一下最近 7 天的备份集清单。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 返回最近 7 天备份集清单（备份集号/类型/状态/大小/时间/TAG）"
+    },
+    "assertions": [
+      {
+        "name": "backup_set_list_queried",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE completion_time > SYSDATE - 7",
+        "logic": "skill 返回的备份集数量应与 v$backup_set 实际数量一致；数量不符则判定为缺陷"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；读取实际备份集数量验证查询结果一致性"
+  },
+  {
+    "skill": "db-oracle-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-backup-28",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份状态",
+    "metric": "数据文件备份状态",
+    "target_state": "normal",
+    "judgment_rule": "各数据文件最近备份时间可正常查询，days_since_backup 反映备份新鲜度",
+    "user_input": "查一下各数据文件最近一次备份时间，看有没有长时间未备份的数据文件。",
+    "params": {
+      "instance_host": "<target>",
+      "backup_type": "status"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "skill 返回各数据文件最近备份时间与距今天数"
+    },
+    "assertions": [
+      {
+        "name": "datafile_backup_status_queried",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_datafile WHERE completion_time > SYSDATE - 30",
+        "logic": "skill 返回的数据文件备份记录应与 v$backup_datafile 实际记录一致；存在长时间未备份文件时 skill 应提示"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造；读取实际数据文件备份状态验证查询结果一致性"
+  }
+]

@@ -1,0 +1,1060 @@
+[
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "SQL类型识别",
+    "metric": "execute_type=auto 识别 DDL",
+    "target_state": "normal",
+    "judgment_rule": "execute_type=auto 时，skill 应自动将 CREATE TABLE 识别为 DDL 并执行，产出反向 DDL（DROP TABLE）作为回滚方案",
+    "user_input": "帮我执行一条建表语句，创建一张订单表 ORDERS，包含 id、name、status 三个字段",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE ORDERS (id NUMBER(18) PRIMARY KEY, name VARCHAR2(200) NOT NULL, status VARCHAR2(20) DEFAULT 'ACTIVE')",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 将 SQL 识别为 DDL(CREATE TABLE)，前置检查通过后执行，输出变更后验证（表存在）与回滚命令（DROP TABLE ORDERS PURGE）"
+    },
+    "assertions": [
+      {
+        "name": "表已创建",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS'",
+        "logic": "cnt = 1 则 DDL 生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：在测试 schema 下执行 CREATE TABLE ORDERS，读取 dba_tables 验证表存在；执行后按回滚方案 DROP TABLE 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-02",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "SQL类型识别",
+    "metric": "execute_type=auto 识别 DML",
+    "target_state": "normal",
+    "judgment_rule": "execute_type=auto 时，skill 应自动将 UPDATE 识别为 DML 并执行，受影响行数与实际一致",
+    "user_input": "把订单表 ORDERS 里状态为 PENDING 的记录更新为 PROCESSING",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE status = 'PENDING'",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 将 SQL 识别为 DML(UPDATE)，前置检查预估影响行数后执行，输出受影响行数与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "更新生效",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE status = 'PROCESSING'",
+        "logic": "cnt 等于执行前 PENDING 行数（即受影响行数），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置若干 status='PENDING' 行，执行 UPDATE 后读取 PROCESSING 行数验证；执行后回滚或清理测试数据"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "SQL类型识别",
+    "metric": "execute_type=ddl 强制模式",
+    "target_state": "normal",
+    "judgment_rule": "execute_type=ddl 时，skill 强制按 DDL 处理并执行，产出反向 DDL 回滚方案",
+    "user_input": "强制按 DDL 模式执行这条建索引语句",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE INDEX IDX_ORDERS_STATUS ON ORDERS (status)",
+      "execute_type": "ddl",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 按 ddl 模式执行 CREATE INDEX，输出索引状态验证与回滚命令（DROP INDEX）"
+    },
+    "assertions": [
+      {
+        "name": "索引已创建",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_indexes WHERE owner = UPPER('<schema>') AND index_name = 'IDX_ORDERS_STATUS'",
+        "logic": "cnt = 1 则索引创建生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：在 ORDERS 表上执行 CREATE INDEX，读取 dba_indexes 验证；执行后 DROP INDEX 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-04",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "SQL类型识别",
+    "metric": "execute_type=dml 强制模式",
+    "target_state": "normal",
+    "judgment_rule": "execute_type=dml 时，skill 强制按 DML 处理并执行，支持 auto_rollback 与分批提交",
+    "user_input": "强制按 DML 模式执行这条删除语句，删除状态为 CANCELLED 的订单",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DELETE FROM ORDERS WHERE status = 'CANCELLED'",
+      "execute_type": "dml",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 按 dml 模式执行 DELETE，输出受影响行数与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "删除生效",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE status = 'CANCELLED'",
+        "logic": "cnt = 0 则删除生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 status='CANCELLED' 行，执行 DELETE 后读取剩余行数验证；执行后清理测试数据"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-05",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "SQL类型识别",
+    "metric": "不支持语句类型（SELECT）",
+    "target_state": "severe",
+    "judgment_rule": "skill 仅支持 DDL/DML，SELECT 等查询语句不在执行范围，应拒绝或明确提示不支持",
+    "user_input": "帮我执行这条查询语句，看看订单表有多少行",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "SELECT COUNT(*) FROM ORDERS",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 识别到 SELECT 非 DDL/DML，拒绝执行并提示仅支持 DDL/DML 变更语句"
+    },
+    "assertions": [
+      {
+        "name": "无任何变更",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_objects WHERE owner = UPPER('<schema>') AND object_name = 'ORDERS'",
+        "logic": "cnt 与执行前一致（无新增对象），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 SELECT 语句，验证 skill 拒绝且无副作用"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-06",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "DCL 语句（GRANT）被拒",
+    "target_state": "severe",
+    "judgment_rule": "skill 不执行 DCL（GRANT/REVOKE/ALTER USER），应拒绝执行并提示不在支持范围",
+    "user_input": "给用户 app_user 授予对订单表的 SELECT 权限",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "GRANT SELECT ON ORDERS TO app_user",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 识别到 GRANT 为 DCL，拒绝执行并提示 DCL 不在支持范围"
+    },
+    "assertions": [
+      {
+        "name": "未产生授权",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tab_privs WHERE grantee = 'APP_USER' AND table_name = 'ORDERS'",
+        "logic": "cnt = 0 则未授权，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 GRANT 语句，验证 skill 拒绝且 dba_tab_privs 无新增授权记录"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-07",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "系统参数修改（ALTER SYSTEM）被拒",
+    "target_state": "severe",
+    "judgment_rule": "skill 不修改系统/会话参数，ALTER SYSTEM 应被拒绝执行",
+    "user_input": "把数据库的 SGA 大小调大一点",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "ALTER SYSTEM SET sga_target = 4G",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 识别到 ALTER SYSTEM 为系统级操作，拒绝执行并提示不在支持范围"
+    },
+    "assertions": [
+      {
+        "name": "参数未变更",
+        "ground_truth_sql": "SELECT value AS v FROM v$parameter WHERE name = 'sga_target'",
+        "logic": "v 与执行前一致（未变更），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 ALTER SYSTEM 语句，验证 skill 拒绝且 v$parameter 值未变"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-08",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "破坏性操作（DROP TABLESPACE）被拒",
+    "target_state": "severe",
+    "judgment_rule": "skill 不执行 DROP TABLESPACE/DATABASE 等破坏性操作，应拒绝执行",
+    "user_input": "删除 USERS 表空间",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DROP TABLESPACE USERS INCLUDING CONTENTS AND DATAFILES",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 识别到 DROP TABLESPACE 为破坏性操作，拒绝执行并提示不在支持范围"
+    },
+    "assertions": [
+      {
+        "name": "表空间仍存在",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tablespaces WHERE tablespace_name = 'USERS'",
+        "logic": "cnt = 1 则表空间未被删除，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 DROP TABLESPACE 语句，验证 skill 拒绝且 dba_tablespaces 中 USERS 仍存在"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-09",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全拦截",
+    "metric": "破坏性操作（DROP DATABASE）被拒",
+    "target_state": "severe",
+    "judgment_rule": "skill 不执行 DROP DATABASE 等破坏性操作，应拒绝执行",
+    "user_input": "删除整个数据库",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DROP DATABASE",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 识别到 DROP DATABASE 为破坏性操作，拒绝执行并提示不在支持范围"
+    },
+    "assertions": [
+      {
+        "name": "数据库仍在线",
+        "ground_truth_sql": "SELECT open_mode AS om FROM v$database",
+        "logic": "om 为 READ WRITE 或 READ ONLY（数据库未被删除），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 DROP DATABASE 语句，验证 skill 拒绝且 v$database 仍可查询"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-10",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "INSERT 成功",
+    "target_state": "normal",
+    "judgment_rule": "auto_rollback=false 时 INSERT 提交生效，目标行存在",
+    "user_input": "往订单表 ORDERS 插入一条新订单，id 为 1001，name 为 test_order",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "INSERT INTO ORDERS (id, name, status) VALUES (1001, 'test_order', 'ACTIVE')",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 执行 INSERT 并提交，输出受影响行数（1）与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "插入行存在",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE id = 1001",
+        "logic": "cnt = 1 则插入生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：执行 INSERT 后读取 id=1001 行验证；执行后 DELETE 清理测试数据"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-11",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "UPDATE 成功",
+    "target_state": "normal",
+    "judgment_rule": "auto_rollback=false 时 UPDATE 提交生效，目标行状态变更",
+    "user_input": "把订单表里 id 为 1001 的订单状态改为 COMPLETED",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'COMPLETED' WHERE id = 1001",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 执行 UPDATE 并提交，输出受影响行数（1）与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "状态已更新",
+        "ground_truth_sql": "SELECT status AS s FROM ORDERS WHERE id = 1001",
+        "logic": "s = 'COMPLETED' 则更新生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 id=1001 行，执行 UPDATE 后读取 status 验证；执行后清理测试数据"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-12",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "DELETE 成功",
+    "target_state": "normal",
+    "judgment_rule": "auto_rollback=false 时 DELETE 提交生效，目标行被删除",
+    "user_input": "删除订单表里 id 为 1001 的订单",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DELETE FROM ORDERS WHERE id = 1001",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 执行 DELETE 并提交，输出受影响行数（1）与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "目标行已删除",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE id = 1001",
+        "logic": "cnt = 0 则删除生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 id=1001 行，执行 DELETE 后读取行数验证"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-13",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DML执行",
+    "metric": "MERGE 成功",
+    "target_state": "normal",
+    "judgment_rule": "auto_rollback=false 时 MERGE（UPSERT）提交生效，目标表行数符合预期",
+    "user_input": "用源表 ORDERS_STAGE 的数据合并到订单表 ORDERS，按 id 匹配则更新，不匹配则插入",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "MERGE INTO ORDERS t USING (SELECT id, name, status FROM ORDERS_STAGE) s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET t.status = s.status WHEN NOT MATCHED THEN INSERT (id, name, status) VALUES (s.id, s.name, s.status)",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行成功",
+      "description": "skill 执行 MERGE 并提交，输出受影响行数与变更后验证"
+    },
+    "assertions": [
+      {
+        "name": "MERGE 结果正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS o WHERE EXISTS (SELECT 1 FROM ORDERS_STAGE s WHERE s.id = o.id AND s.status = o.status)",
+        "logic": "cnt 等于 ORDERS_STAGE 中与 ORDERS 匹配且状态一致的行数（即 MERGE 后一致），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 ORDERS_STAGE 源表，执行 MERGE 后对比两表一致性验证；执行后清理测试数据"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-14",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "auto_rollback=true 自动回滚验证",
+    "target_state": "normal",
+    "judgment_rule": "auto_rollback=true 时 DML 执行后回滚到 SAVEPOINT，数据不实际变更，用于验证",
+    "user_input": "先试运行一下这条 UPDATE，确认无误再提交，先不要真正改数据",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE status = 'PENDING'",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 执行后回滚",
+      "description": "skill 执行 UPDATE 后自动回滚到 SAVEPOINT，输出受影响行数但数据未实际变更"
+    },
+    "assertions": [
+      {
+        "name": "数据未实际变更",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE status = 'PROCESSING'",
+        "logic": "cnt 与执行前一致（回滚后无新增 PROCESSING 行），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 PENDING 行，auto_rollback=true 执行 UPDATE 后读取 PROCESSING 行数，应与执行前一致"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-15",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "唯一约束冲突（ORA-00001）自动回滚",
+    "target_state": "severe",
+    "judgment_rule": "INSERT 触发唯一约束冲突时，skill 回滚到 SAVEPOINT 并提示冲突值，不产生脏数据",
+    "user_input": "往订单表插入一条主键 id 为 1001 的记录，但这条 id 已经存在了",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "INSERT INTO ORDERS (id, name, status) VALUES (1001, 'dup_order', 'ACTIVE')",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 失败并回滚",
+      "description": "skill 捕获 ORA-00001 唯一约束冲突，回滚到 SAVEPOINT，提示冲突值，不产生重复数据"
+    },
+    "assertions": [
+      {
+        "name": "无重复数据",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE id = 1001",
+        "logic": "cnt = 1（仅原有 1 行，未插入重复行），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 id=1001 行，再次 INSERT 同 id 触发冲突，验证回滚后仍仅 1 行"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-16",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "DML执行",
+    "metric": "对象不存在（ORA-00942）",
+    "target_state": "severe",
+    "judgment_rule": "操作对象不存在时，skill 中断并提示对象不存在，检查 schema 与表名",
+    "user_input": "更新一张不存在的表 NON_EXIST_TABLE 的数据",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE NON_EXIST_TABLE SET status = 'X' WHERE id = 1",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 中断",
+      "description": "skill 捕获 ORA-00942 表或视图不存在，中断并提示检查 schema 与表名"
+    },
+    "assertions": [
+      {
+        "name": "无副作用",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_objects WHERE owner = UPPER('<schema>') AND object_name = 'NON_EXIST_TABLE'",
+        "logic": "cnt = 0（对象不存在，无任何变更），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：对不存在的表执行 UPDATE，验证 skill 中断且无副作用"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-17",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "DML执行",
+    "metric": "执行超时自动回滚",
+    "target_state": "severe",
+    "judgment_rule": "DML 执行超过 timeout_seconds 时，skill 自动回滚到 SAVEPOINT 并终止，数据不实际变更",
+    "user_input": "执行一条大批量更新，把超时时间设成 1 秒，看看超时会不会回滚",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE status = 'PENDING'",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "timeout_seconds": 1,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 超时回滚",
+      "description": "skill 检测到执行超时，回滚到 SAVEPOINT 并终止，提示已处理行数，数据未实际变更"
+    },
+    "assertions": [
+      {
+        "name": "超时后数据未变更",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE status = 'PROCESSING'",
+        "logic": "cnt 与执行前一致（超时回滚后无新增 PROCESSING 行），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置大量 PENDING 行并设 timeout_seconds=1，验证超时后回滚且数据未变"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-18",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "DML执行",
+    "metric": "分批提交 commit_batch_size",
+    "target_state": "normal",
+    "judgment_rule": "commit_batch_size>0 时 DML 分批提交，总受影响行数与实际一致",
+    "user_input": "大批量更新订单状态，每 5000 行提交一次，避免大事务",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE status = 'PENDING'",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "commit_batch_size": 5000,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DML 分批执行成功",
+      "description": "skill 按 commit_batch_size=5000 分批提交，输出批次信息与总受影响行数"
+    },
+    "assertions": [
+      {
+        "name": "分批更新全部生效",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS WHERE status = 'PROCESSING'",
+        "logic": "cnt 等于执行前 PENDING 行数（全部更新生效），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置超过 5000 行 PENDING 数据，设 commit_batch_size=5000 执行，验证全部更新生效"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-19",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DDL执行",
+    "metric": "CREATE TABLE 成功且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "CREATE TABLE 执行成功，回滚方案为 DROP TABLE PURGE",
+    "user_input": "创建一张客户表 CUSTOMERS，包含 id 和 name 字段",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE CUSTOMERS (id NUMBER(18) PRIMARY KEY, name VARCHAR2(200) NOT NULL)",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 CREATE TABLE，输出变更后验证（表存在）与回滚命令（DROP TABLE CUSTOMERS PURGE）"
+    },
+    "assertions": [
+      {
+        "name": "表已创建",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'CUSTOMERS'",
+        "logic": "cnt = 1 则表创建生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：执行 CREATE TABLE CUSTOMERS，读取 dba_tables 验证；执行后 DROP TABLE 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-20",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "ALTER TABLE 加列且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "ALTER TABLE ADD COLUMN 执行成功，回滚方案为 DROP COLUMN",
+    "user_input": "给订单表 ORDERS 增加一列 remark 备注字段",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "ALTER TABLE ORDERS ADD (remark VARCHAR2(500))",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 ALTER TABLE 加列，输出变更后验证（列存在）与回滚命令（DROP COLUMN remark）"
+    },
+    "assertions": [
+      {
+        "name": "新列已添加",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tab_columns WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS' AND column_name = 'REMARK'",
+        "logic": "cnt = 1 则加列生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：对 ORDERS 执行 ALTER TABLE ADD remark，读取 dba_tab_columns 验证；执行后 DROP COLUMN 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-21",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "ALTER TABLE 删列且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "ALTER TABLE DROP COLUMN 执行成功，回滚方案为从备份恢复（ADD COLUMN + 数据恢复）",
+    "user_input": "删除订单表 ORDERS 里的 remark 备注列",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "ALTER TABLE ORDERS DROP COLUMN remark",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 ALTER TABLE 删列，输出变更后验证（列不存在）与回滚方案（从备份恢复）"
+    },
+    "assertions": [
+      {
+        "name": "列已删除",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tab_columns WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS' AND column_name = 'REMARK'",
+        "logic": "cnt = 0 则删列生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 ORDERS 含 remark 列，执行 DROP COLUMN 后读取 dba_tab_columns 验证"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-22",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "ALTER TABLE 修改列且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "ALTER TABLE MODIFY 执行成功，回滚方案为反向 MODIFY",
+    "user_input": "把订单表 ORDERS 的 name 字段长度从 200 改成 500",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "ALTER TABLE ORDERS MODIFY (name VARCHAR2(500))",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 ALTER TABLE MODIFY，输出变更后验证（列类型变化）与回滚命令（反向 MODIFY）"
+    },
+    "assertions": [
+      {
+        "name": "列类型已修改",
+        "ground_truth_sql": "SELECT data_type || '(' || data_length || ')' AS col_type FROM dba_tab_columns WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS' AND column_name = 'NAME'",
+        "logic": "col_type 反映 VARCHAR2(500)（data_length=1000 字节），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：对 ORDERS 执行 MODIFY name VARCHAR2(500)，读取 dba_tab_columns 验证；执行后反向 MODIFY 恢复"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-23",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "DDL执行",
+    "metric": "DROP TABLE 且可 FLASHBACK 回滚",
+    "target_state": "normal",
+    "judgment_rule": "回收站开启时 DROP TABLE 保留在回收站，回滚方案为 FLASHBACK TABLE TO BEFORE DROP",
+    "user_input": "删除订单表 ORDERS，但先别彻底清掉，万一要恢复",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DROP TABLE ORDERS",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功且可回滚",
+      "description": "skill 确认回收站开启后执行 DROP TABLE（不加 PURGE），输出回收站验证与回滚命令（FLASHBACK TABLE TO BEFORE DROP）"
+    },
+    "assertions": [
+      {
+        "name": "表进入回收站",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM user_recyclebin WHERE original_name = 'ORDERS'",
+        "logic": "cnt = 1 则表在回收站中可恢复，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：确认 recyclebin=ON 后执行 DROP TABLE ORDERS，读取 user_recyclebin 验证；执行后 FLASHBACK 恢复"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-24",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "CREATE INDEX 成功且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "CREATE INDEX 执行成功，回滚方案为 DROP INDEX",
+    "user_input": "给订单表 ORDERS 的 status 字段创建一个普通索引",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE INDEX IDX_ORDERS_STATUS ON ORDERS (status)",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 CREATE INDEX，输出索引状态验证与回滚命令（DROP INDEX）"
+    },
+    "assertions": [
+      {
+        "name": "索引已创建且有效",
+        "ground_truth_sql": "SELECT status AS s FROM dba_indexes WHERE owner = UPPER('<schema>') AND index_name = 'IDX_ORDERS_STATUS'",
+        "logic": "s = 'VALID' 则索引创建生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：对 ORDERS 执行 CREATE INDEX，读取 dba_indexes 验证状态；执行后 DROP INDEX 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-25",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "DROP INDEX 成功且可回滚",
+    "target_state": "normal",
+    "judgment_rule": "DROP INDEX 执行成功，回滚方案为重新创建索引（需保存 DDL）",
+    "user_input": "删除订单表 ORDERS 上的 IDX_ORDERS_STATUS 索引",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "DROP INDEX IDX_ORDERS_STATUS",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 执行成功",
+      "description": "skill 执行 DROP INDEX，输出变更后验证（索引不存在）与回滚方案（重新创建索引）"
+    },
+    "assertions": [
+      {
+        "name": "索引已删除",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_indexes WHERE owner = UPPER('<schema>') AND index_name = 'IDX_ORDERS_STATUS'",
+        "logic": "cnt = 0 则索引删除生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 IDX_ORDERS_STATUS 索引，执行 DROP INDEX 后读取 dba_indexes 验证"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-26",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "DDL执行",
+    "metric": "TRUNCATE 不可回滚需二次确认",
+    "target_state": "severe",
+    "judgment_rule": "TRUNCATE 不可回滚，skill 必须二次确认（用户明确同意）后才执行，否则拒绝",
+    "user_input": "清空订单表 ORDERS 的所有数据",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "TRUNCATE TABLE ORDERS",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "需二次确认",
+      "description": "skill 识别 TRUNCATE 为不可回滚高风险操作，要求二次确认并提供备份方案；未确认时拒绝执行"
+    },
+    "assertions": [
+      {
+        "name": "未确认前数据未清空",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM ORDERS",
+        "logic": "cnt 与执行前一致（未二次确认时未执行 TRUNCATE），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：提交 TRUNCATE 但不二次确认，验证 skill 拒绝且数据未清空；确认后执行则 cnt=0"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-27",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "对象已存在（ORA-00955）",
+    "target_state": "severe",
+    "judgment_rule": "创建已存在的对象时，skill 中断并提示对象已存在，检查是否需要先删除或改名",
+    "user_input": "创建一张订单表 ORDERS，但这张表已经存在了",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE ORDERS (id NUMBER(18) PRIMARY KEY)",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 中断",
+      "description": "skill 捕获 ORA-00955 名称已存在，中断并提示对象已存在，检查是否需要先删除或改名"
+    },
+    "assertions": [
+      {
+        "name": "未重复创建",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS'",
+        "logic": "cnt = 1（仍为原有 1 张表，未重复创建），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：预置 ORDERS 表，再次 CREATE TABLE ORDERS 触发 ORA-00955，验证中断且未重复创建"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-28",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "DDL执行",
+    "metric": "资源正忙（ORA-00054）",
+    "target_state": "severe",
+    "judgment_rule": "对象被锁定时 DDL 等待超时，skill 提示存在锁持有者，建议低峰期重试，变更不生效",
+    "user_input": "修改订单表 ORDERS 的结构，但这张表正被其他事务锁定",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "ALTER TABLE ORDERS ADD (remark VARCHAR2(500))",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 中断",
+      "description": "skill 捕获 ORA-00054 资源正忙，提示存在锁持有者，建议低峰期重试，变更未生效"
+    },
+    "assertions": [
+      {
+        "name": "变更未生效",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tab_columns WHERE owner = UPPER('<schema>') AND table_name = 'ORDERS' AND column_name = 'REMARK'",
+        "logic": "cnt = 0（加列未生效），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：开启一个事务锁定 ORDERS 后提交 ALTER TABLE，验证 skill 因 ORA-00054 中断且加列未生效"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-29",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "Dry Run 模式",
+    "metric": "dry_run=true 仅解析不执行",
+    "target_state": "normal",
+    "judgment_rule": "dry_run=true 时 skill 仅解析 SQL 并输出回滚方案，不实际执行任何变更",
+    "user_input": "先试运行一下这条建表语句，看看回滚方案，先别真的建表",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE CUSTOMERS (id NUMBER(18) PRIMARY KEY, name VARCHAR2(200))",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": true
+    },
+    "expected_output": {
+      "target_judgment": "仅输出回滚方案",
+      "description": "skill 输出 Dry Run 报告（SQL 类型、前置检查、影响评估、回滚方案），不实际执行 CREATE TABLE"
+    },
+    "assertions": [
+      {
+        "name": "未实际建表",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'CUSTOMERS'",
+        "logic": "cnt = 0（dry_run 未实际建表），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：dry_run=true 提交 CREATE TABLE，验证 skill 仅输出方案且 dba_tables 无 CUSTOMERS"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-30",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "Dry Run 模式",
+    "metric": "dry_run=false 实际执行",
+    "target_state": "normal",
+    "judgment_rule": "dry_run=false 时 skill 实际执行变更，与 dry_run=true 形成对照",
+    "user_input": "正式执行这条建表语句，创建客户表 CUSTOMERS",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE CUSTOMERS (id NUMBER(18) PRIMARY KEY, name VARCHAR2(200))",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "DDL 实际执行成功",
+      "description": "dry_run=false 时 skill 实际执行 CREATE TABLE，输出变更后验证与回滚命令"
+    },
+    "assertions": [
+      {
+        "name": "表已实际创建",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'CUSTOMERS'",
+        "logic": "cnt = 1 则实际建表生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：dry_run=false 提交 CREATE TABLE，读取 dba_tables 验证；执行后 DROP TABLE 清理"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-31",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "权限校验",
+    "metric": "权限不足中断",
+    "target_state": "severe",
+    "judgment_rule": "当前用户缺少所需权限时，skill 中断并提示缺失的具体权限，不执行变更",
+    "user_input": "创建一张表，但当前用户没有 CREATE TABLE 权限",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "CREATE TABLE NO_PRIV_TABLE (id NUMBER(18))",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "权限不足中断",
+      "description": "skill 前置检查发现缺少 CREATE TABLE 权限，中断并提示缺失的具体权限，不执行变更"
+    },
+    "assertions": [
+      {
+        "name": "未创建表",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = UPPER('<schema>') AND table_name = 'NO_PRIV_TABLE'",
+        "logic": "cnt = 0（权限不足未建表），断言通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "当前环境可构造：使用无 CREATE TABLE 权限的账号提交建表，验证 skill 中断且未建表"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-32",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "前置检查",
+    "metric": "数据库非 READ WRITE 状态",
+    "target_state": "severe",
+    "judgment_rule": "数据库 open_mode 非 READ WRITE 时，skill 拒绝执行变更并提示数据库状态",
+    "user_input": "在只读数据库上执行一条更新语句",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE id = 1001",
+      "execute_type": "auto",
+      "auto_rollback": true,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "skill 前置检查发现数据库非 READ WRITE，拒绝执行并提示数据库状态"
+    },
+    "assertions": [
+      {
+        "name": "数据未变更",
+        "ground_truth_sql": "SELECT status AS s FROM ORDERS WHERE id = 1001",
+        "logic": "s 与执行前一致（只读库未变更），断言通过"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制只读状态，读取实际 open_mode 验证判断逻辑；真实只读环境存在时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-execute",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-execute-33",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "前置检查",
+    "metric": "活跃事务数过高",
+    "target_state": "warning",
+    "judgment_rule": "活跃事务数 >= 10 时，skill 提示风险并建议低峰期执行，仍可执行但需告警",
+    "user_input": "当前数据库活跃事务很多，帮我执行这条更新语句",
+    "params": {
+      "instance_host": "<target_oracle_instance>",
+      "sql_text": "UPDATE ORDERS SET status = 'PROCESSING' WHERE id = 1001",
+      "execute_type": "auto",
+      "auto_rollback": false,
+      "dry_run": false
+    },
+    "expected_output": {
+      "target_judgment": "提示风险后执行",
+      "description": "skill 前置检查发现活跃事务数过高，输出风险提示，仍执行变更"
+    },
+    "assertions": [
+      {
+        "name": "变更仍生效",
+        "ground_truth_sql": "SELECT status AS s FROM ORDERS WHERE id = 1001",
+        "logic": "s = 'PROCESSING' 则变更生效，断言通过"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制活跃事务数 >= 10，读取 v$transaction 实际值验证判断逻辑；真实高并发环境存在时自动覆盖该分支"
+  }
+]

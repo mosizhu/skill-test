@@ -1,0 +1,905 @@
+[
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "参数校验",
+    "metric": "top_n 默认值",
+    "target_state": "normal",
+    "judgment_rule": "top_n 缺省为 10，按 elapsed_time 降序返回 TOP N 慢 SQL 列表",
+    "user_input": "帮我看看最近24小时数据库里最慢的10条SQL，按总耗时排序",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "elapsed",
+      "time_range_hours": 24
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回结构化 TOP N SQL 列表（SQL_ID + elapsed/cpu/buffer_gets/disk_reads/executions），按 elapsed_time 降序，条数不超过 top_n"
+    },
+    "assertions": [
+      {
+        "name": "返回条数不超过 top_n 且按耗时降序",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0",
+        "logic": "skill 返回的 SQL 条数 = MIN(实际 executions>0 的 SQL 数, top_n)，且列表按 elapsed_time 降序排列"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "连接真实 Oracle 实例，用默认参数触发 TOP N 慢 SQL 定位，读取 v$sql 实际值验证返回条数与排序"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "top_n 下边界",
+    "target_state": "normal",
+    "judgment_rule": "top_n=1 时仅返回最慢的 1 条 SQL",
+    "user_input": "只要最慢的那1条SQL就够了",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 1,
+      "sort_metric": "elapsed"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回恰好 1 条（或 0 条当无慢 SQL）SQL，为 elapsed_time 最大者"
+    },
+    "assertions": [
+      {
+        "name": "返回条数等于 1",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0",
+        "logic": "skill 返回条数 = MIN(实际 SQL 数, 1)，即最多 1 条"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "连接真实实例，top_n=1 触发，验证返回条数上限为 1"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-03",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "top_n 非法值",
+    "target_state": "rejected",
+    "judgment_rule": "top_n 必须 >= 1，top_n=0 或负数应被拒绝或提示参数错误",
+    "user_input": "帮我返回0条慢SQL看看",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 0,
+      "sort_metric": "elapsed"
+    },
+    "expected_output": {
+      "target_judgment": "rejected",
+      "description": "skill 拒绝 top_n=0 并给出参数错误提示，或返回空列表并明确标注参数非法"
+    },
+    "assertions": [
+      {
+        "name": "非法 top_n 被拒绝",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "skill 对 top_n<=0 应返回参数校验错误信息，而非执行查询；若返回空列表须附带参数非法说明"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 top_n=0 触发，验证参数校验拦截逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-04",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "sort_metric 非法值",
+    "target_state": "rejected",
+    "judgment_rule": "sort_metric 仅允许 elapsed/cpu/buffer_gets/disk_reads/executions，非法值应被拒绝",
+    "user_input": "按内存占用排序帮我看看慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "sort_metric": "memory"
+    },
+    "expected_output": {
+      "target_judgment": "rejected",
+      "description": "skill 拒绝非法排序指标 memory，提示仅支持 elapsed/cpu/buffer_gets/disk_reads/executions"
+    },
+    "assertions": [
+      {
+        "name": "非法排序指标被拒绝",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "skill 对不在枚举内的 sort_metric 应返回参数校验错误，不执行查询"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 sort_metric=memory 触发，验证枚举校验"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-05",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接",
+    "metric": "实例连接失败",
+    "target_state": "connection_failed",
+    "judgment_rule": "实例连接失败时返回明确连接错误信息，不输出数据库原始异常堆栈",
+    "user_input": "检查一下这个不存在的实例 10.0.0.99:1521/ORCL 的慢SQL",
+    "params": {
+      "instance_host": "10.0.0.99:1521/ORCL"
+    },
+    "expected_output": {
+      "target_judgment": "connection_failed",
+      "description": "返回明确的连接失败/无法连接信息，不泄露数据库原始异常堆栈"
+    },
+    "assertions": [
+      {
+        "name": "连接失败信息明确且无原始堆栈",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "skill 输出应包含连接失败/无法连接等明确信息，且不包含数据库原始异常堆栈文本"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "指向不可达主机/端口触发连接失败，验证错误信息封装"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-06",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "权限",
+    "metric": "v$ 视图权限不足",
+    "target_state": "permission_denied",
+    "judgment_rule": "无权限访问 v$/DBA_HIST 视图时标记该维度权限不足，单条失败不影响整体",
+    "user_input": "用只读账号帮我查一下慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "permission_denied",
+      "description": "skill 标记权限不足维度，不输出原始权限异常堆栈，其余可访问维度继续"
+    },
+    "assertions": [
+      {
+        "name": "权限不足被标记",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql WHERE ROWNUM <= 1",
+        "logic": "若当前账号无法访问 v$sql（抛 ORA-00942 等），skill 应标记该维度权限不足而非崩溃"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用无 v$ 视图权限的账号触发，验证权限边界与异常隔离"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-07",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "慢SQL定位",
+    "metric": "elapsed_time 总耗时",
+    "target_state": "normal",
+    "judgment_rule": "无 SQL 的 avg_elapsed_sec >= 1s 时判定 normal",
+    "user_input": "数据库最近响应有点慢，帮我看看有没有慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "elapsed"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无 SQL 单次平均耗时超过 1s，报告判定为正常，返回 TOP N 列表"
+    },
+    "assertions": [
+      {
+        "name": "无慢 SQL 判定 normal",
+        "ground_truth_sql": "SELECT COUNT(*) AS slow_cnt FROM v$sql WHERE executions > 0 AND elapsed_time / GREATEST(executions, 1) / 1000000 >= 1",
+        "logic": "若 slow_cnt = 0，skill 应判定 normal；若 slow_cnt > 0，skill 判定应与实际一致（warning/severe）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "在空闲实例上触发，读取 v$sql 实际慢 SQL 数验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-08",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "慢SQL定位",
+    "metric": "elapsed_time 总耗时",
+    "target_state": "warning",
+    "judgment_rule": "存在 SQL 的 avg_elapsed_sec >= 1s 时判定 warning",
+    "user_input": "数据库响应变慢了，帮我定位最耗时的SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "elapsed"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在单次平均耗时 >= 1s 的 SQL，报告判定为 warning 并列出该 SQL"
+    },
+    "assertions": [
+      {
+        "name": "存在慢 SQL 判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS slow_cnt FROM v$sql WHERE executions > 0 AND elapsed_time / GREATEST(executions, 1) / 1000000 >= 1",
+        "logic": "若 slow_cnt >= 1 且 < 5，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可执行重查询构造慢 SQL，读取 v$sql 实际值验证 warning 判断"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-09",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "慢SQL定位",
+    "metric": "elapsed_time 总耗时",
+    "target_state": "severe",
+    "judgment_rule": "存在 SQL 的 avg_elapsed_sec >= 5s 或慢 SQL 数 >= 5 时判定 severe",
+    "user_input": "数据库卡死了，CPU 飙高，帮我找出最耗时的SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "elapsed"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "存在单次平均耗时 >= 5s 或慢 SQL 数 >= 5，报告判定为 severe 并给出优化方向建议"
+    },
+    "assertions": [
+      {
+        "name": "严重慢 SQL 判定 severe",
+        "ground_truth_sql": "SELECT COUNT(*) AS severe_cnt FROM v$sql WHERE executions > 0 AND elapsed_time / GREATEST(executions, 1) / 1000000 >= 5",
+        "logic": "若 severe_cnt >= 1 或慢 SQL 总数 >= 5，skill 应判定 severe"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 severe 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-10",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "cpu_time 排序",
+    "target_state": "normal",
+    "judgment_rule": "sort_metric=cpu 时按 cpu_time 降序返回 TOP N",
+    "user_input": "按CPU时间排序，看看哪些SQL最耗CPU",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回按 cpu_time 降序的 TOP N SQL 列表"
+    },
+    "assertions": [
+      {
+        "name": "按 cpu_time 降序",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0",
+        "logic": "skill 返回列表按 cpu_time 降序，条数 = MIN(实际 SQL 数, top_n)"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 sort_metric=cpu 触发，验证排序字段正确"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-11",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "cpu_time 排序",
+    "target_state": "warning",
+    "judgment_rule": "存在 cpu_time 占比高的 SQL 时判定 warning",
+    "user_input": "CPU 使用率很高，帮我按CPU时间找出最耗CPU的SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "cpu"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在高 CPU 消耗 SQL，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "高 CPU SQL 判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS high_cpu FROM v$sql WHERE executions > 0 AND cpu_time / GREATEST(executions, 1) / 1000000 >= 1",
+        "logic": "若 high_cpu >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制高 CPU 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "buffer_gets 排序",
+    "target_state": "normal",
+    "judgment_rule": "sort_metric=buffer_gets 时按 buffer_gets 降序返回 TOP N",
+    "user_input": "按逻辑读排序，看看哪些SQL内存消耗高",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "buffer_gets"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回按 buffer_gets 降序的 TOP N SQL 列表"
+    },
+    "assertions": [
+      {
+        "name": "按 buffer_gets 降序",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0",
+        "logic": "skill 返回列表按 buffer_gets 降序，条数 = MIN(实际 SQL 数, top_n)"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 sort_metric=buffer_gets 触发，验证排序字段正确"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-13",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "buffer_gets 排序",
+    "target_state": "warning",
+    "judgment_rule": "存在 buffer_gets 单次平均过高的 SQL 时判定 warning",
+    "user_input": "内存消耗高，帮我按逻辑读找出高内存SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "buffer_gets"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在高逻辑读 SQL，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "高逻辑读 SQL 判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS high_bg FROM v$sql WHERE executions > 0 AND buffer_gets / GREATEST(executions, 1) >= 100000",
+        "logic": "若 high_bg >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制高逻辑读状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "disk_reads 排序",
+    "target_state": "normal",
+    "judgment_rule": "sort_metric=disk_reads 时按 disk_reads 降序返回 TOP N",
+    "user_input": "按物理读排序，看看哪些SQL I/O 高",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "disk_reads"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回按 disk_reads 降序的 TOP N SQL 列表"
+    },
+    "assertions": [
+      {
+        "name": "按 disk_reads 降序",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0 AND disk_reads > 0",
+        "logic": "skill 返回列表按 disk_reads 降序，条数 = MIN(实际 SQL 数, top_n)"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 sort_metric=disk_reads 触发，验证排序字段正确"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-15",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "disk_reads 排序",
+    "target_state": "warning",
+    "judgment_rule": "存在 disk_reads 单次平均过高的 SQL 时判定 warning",
+    "user_input": "磁盘 I/O 很高，帮我按物理读找出高 I/O SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "disk_reads"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在高物理读 SQL，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "高物理读 SQL 判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS high_dr FROM v$sql WHERE executions > 0 AND disk_reads / GREATEST(executions, 1) >= 10000",
+        "logic": "若 high_dr >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制高物理读状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-16",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "executions 排序",
+    "target_state": "normal",
+    "judgment_rule": "sort_metric=executions 时按 executions 降序返回 TOP N",
+    "user_input": "按执行次数排序，看看哪些SQL执行最频繁",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "executions"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回按 executions 降序的 TOP N SQL 列表"
+    },
+    "assertions": [
+      {
+        "name": "按 executions 降序",
+        "ground_truth_sql": "SELECT COUNT(*) AS total FROM v$sql WHERE executions > 0",
+        "logic": "skill 返回列表按 executions 降序，条数 = MIN(实际 SQL 数, top_n)"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 sort_metric=executions 触发，验证排序字段正确"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-17",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "慢SQL定位",
+    "metric": "executions 排序",
+    "target_state": "warning",
+    "judgment_rule": "存在 executions 异常高（高频）的 SQL 时判定 warning",
+    "user_input": "某个SQL执行太频繁，帮我按执行次数找出高频SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "top_n": 10,
+      "sort_metric": "executions"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在高频执行 SQL，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "高频 SQL 判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS high_exec FROM v$sql WHERE executions >= 10000",
+        "logic": "若 high_exec >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制高频执行状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-18",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "执行计划",
+    "metric": "执行计划获取",
+    "target_state": "normal",
+    "judgment_rule": "指定 sql_id 时通过 DBMS_XPLAN.DISPLAY_CURSOR/DISPLAY_AWR 返回执行计划",
+    "user_input": "帮我分析这条SQL的执行计划，看看有没有问题",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "sql_id": "<sql_id>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回指定 SQL_ID 的执行计划（含访问路径、连接方式、行数估算）"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 存在时返回执行计划",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql WHERE sql_id = '<sql_id>'",
+        "logic": "若 cnt >= 1，skill 应返回该 sql_id 的执行计划；若 cnt = 0，skill 应提示 sql_id 不存在"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "先执行一条 SQL 获取其 sql_id，再触发执行计划分析，验证 DBMS_XPLAN 输出"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-19",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "执行计划",
+    "metric": "全表扫描检测",
+    "target_state": "warning",
+    "judgment_rule": "存在 TABLE ACCESS FULL 且非系统表时判定 warning",
+    "user_input": "帮我看看有没有全表扫描的SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "检测到业务表全表扫描，报告判定 warning 并列出对象"
+    },
+    "assertions": [
+      {
+        "name": "存在全表扫描判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS fts_cnt FROM v$sql_plan WHERE operation = 'TABLE ACCESS' AND options = 'FULL' AND object_owner NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 fts_cnt >= 1，skill 应判定 warning 并列出全表扫描对象"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可构造无索引大表查询触发全表扫描，读取 v$sql_plan 实际值验证"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-20",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "执行计划",
+    "metric": "全表扫描检测",
+    "target_state": "normal",
+    "judgment_rule": "无业务表全表扫描时判定 normal",
+    "user_input": "检查一下全表扫描情况",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无业务表全表扫描，报告判定 normal"
+    },
+    "assertions": [
+      {
+        "name": "无全表扫描判定 normal",
+        "ground_truth_sql": "SELECT COUNT(*) AS fts_cnt FROM v$sql_plan WHERE operation = 'TABLE ACCESS' AND options = 'FULL' AND object_owner NOT IN ('SYS','SYSTEM','DBSNMP')",
+        "logic": "若 fts_cnt = 0，skill 应判定 normal"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "在无全表扫描的实例上触发，读取 v$sql_plan 实际值验证"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-21",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "执行计划",
+    "metric": "CARDINALITY 偏差",
+    "target_state": "warning",
+    "judgment_rule": "执行计划 E-Rows 与 A-Rows 偏差 > 10x 时判定 warning（统计信息可能过期）",
+    "user_input": "这条SQL执行计划预估行数和实际差很多，帮我分析",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "sql_id": "<sql_id>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "识别 E-Rows 与 A-Rows 偏差 > 10x，报告判定 warning 并提示统计信息可能过期"
+    },
+    "assertions": [
+      {
+        "name": "行数偏差大判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sql WHERE sql_id = '<sql_id>'",
+        "logic": "若 sql_id 存在且其执行计划 E-Rows 与 A-Rows 偏差 > 10x，skill 应判定 warning；否则 normal"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制行数偏差状态，读取实际执行计划验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-22",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "统计信息",
+    "metric": "表统计信息新鲜度",
+    "target_state": "normal",
+    "judgment_rule": "无 stale_stats='YES' 的表且 days_stale < 7 时判定 normal",
+    "user_input": "帮我检查一下统计信息是否新鲜",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无过期统计信息表，报告判定 normal"
+    },
+    "assertions": [
+      {
+        "name": "统计信息新鲜判定 normal",
+        "ground_truth_sql": "SELECT COUNT(*) AS stale_cnt FROM dba_tab_statistics WHERE owner NOT IN ('SYS','SYSTEM','DBSNMP') AND stale_stats = 'YES'",
+        "logic": "若 stale_cnt = 0，skill 应判定 normal"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "在统计信息新鲜的实例上触发，读取 dba_tab_statistics 实际值验证"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-23",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "统计信息",
+    "metric": "表统计信息新鲜度",
+    "target_state": "warning",
+    "judgment_rule": "存在 stale_stats='YES' 或 days_stale >= 7 的表时判定 warning",
+    "user_input": "最近表数据变更很大，帮我检查统计信息是否过期",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在过期统计信息表，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "统计信息过期判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS stale_cnt FROM dba_tab_statistics WHERE owner NOT IN ('SYS','SYSTEM','DBSNMP') AND stale_stats = 'YES'",
+        "logic": "若 stale_cnt >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制统计信息过期状态（本技能不执行 DBMS_STATS），读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-24",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "统计信息",
+    "metric": "表统计信息新鲜度",
+    "target_state": "severe",
+    "judgment_rule": "存在 days_stale >= 30 的表时判定 severe",
+    "user_input": "统计信息很久没更新了，帮我看看有多严重",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "severe",
+      "description": "存在严重过期（>=30 天）统计信息表，报告判定 severe 并给出收集建议"
+    },
+    "assertions": [
+      {
+        "name": "统计信息严重过期判定 severe",
+        "ground_truth_sql": "SELECT COUNT(*) AS severe_cnt FROM dba_tab_statistics WHERE owner NOT IN ('SYS','SYSTEM','DBSNMP') AND ROUND(SYSDATE - last_analyzed) >= 30",
+        "logic": "若 severe_cnt >= 1，skill 应判定 severe"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制严重过期状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-25",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "统计信息",
+    "metric": "索引统计信息新鲜度",
+    "target_state": "warning",
+    "judgment_rule": "存在索引 stale_stats='YES' 时判定 warning",
+    "user_input": "帮我检查索引统计信息是否过期",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "存在过期索引统计信息，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "索引统计信息过期判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS stale_idx FROM dba_ind_statistics WHERE table_owner NOT IN ('SYS','SYSTEM','DBSNMP') AND stale_stats = 'YES'",
+        "logic": "若 stale_idx >= 1，skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制索引统计信息过期状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-26",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "AWR",
+    "metric": "AWR 快照存在",
+    "target_state": "normal",
+    "judgment_rule": "AWR 快照存在时从 DBA_HIST_SQLSTAT 分析历史慢 SQL",
+    "user_input": "帮我从AWR历史快照分析最近24小时的慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "time_range_hours": 24
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "从 DBA_HIST_SQLSTAT 返回历史 TOP N 慢 SQL"
+    },
+    "assertions": [
+      {
+        "name": "AWR 快照存在时使用历史数据",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(24, 'HOUR')",
+        "logic": "若 snap_cnt >= 1，skill 应基于 DBA_HIST_SQLSTAT 返回历史慢 SQL；若 snap_cnt = 0 应回退 v$ 实时"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "在启用 AWR 的实例上触发，读取 dba_hist_snapshot 实际值验证"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-27",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "AWR",
+    "metric": "AWR 快照不存在回退",
+    "target_state": "fallback",
+    "judgment_rule": "AWR 快照不存在时回退到 v$ 动态视图实时查询",
+    "user_input": "AWR快照好像没开，帮我分析慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "fallback",
+      "description": "AWR 快照为空时回退 v$ 实时查询并仍返回 TOP N 结果"
+    },
+    "assertions": [
+      {
+        "name": "AWR 为空时回退 v$",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot",
+        "logic": "若 snap_cnt = 0，skill 应回退到 v$sql 实时查询并返回结果，而非报错"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境 AWR 状态取决于实例配置，读取实际快照数验证回退逻辑；真实环境无快照时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-28",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "索引使用",
+    "metric": "未使用索引检测",
+    "target_state": "warning",
+    "judgment_rule": "存在 used='NO' 且已启用监控的索引时判定 warning",
+    "user_input": "帮我看看有没有没被用到的索引",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "检测到未使用索引，报告判定 warning 并列出"
+    },
+    "assertions": [
+      {
+        "name": "存在未使用索引判定 warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS unused_cnt FROM v$object_usage WHERE used = 'NO' AND start_monitoring IS NOT NULL",
+        "logic": "若 unused_cnt >= 1，skill 应判定 warning 并列出未使用索引"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境需先启用索引监控（ALTER INDEX MONITORING USAGE）才能构造，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-29",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "索引使用",
+    "metric": "未使用索引检测",
+    "target_state": "normal",
+    "judgment_rule": "无 used='NO' 的已监控索引时判定 normal",
+    "user_input": "检查一下索引使用情况",
+    "params": {
+      "instance_host": "<host>:<port>/<service>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "无未使用索引，报告判定 normal"
+    },
+    "assertions": [
+      {
+        "name": "无未使用索引判定 normal",
+        "ground_truth_sql": "SELECT COUNT(*) AS unused_cnt FROM v$object_usage WHERE used = 'NO' AND start_monitoring IS NOT NULL",
+        "logic": "若 unused_cnt = 0，skill 应判定 normal"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "在无未使用索引的实例上触发，读取 v$object_usage 实际值验证"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-30",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "单条SQL统计",
+    "metric": "执行统计详情",
+    "target_state": "normal",
+    "judgment_rule": "指定 sql_id 时返回 v$sqlstats 详细执行统计",
+    "user_input": "帮我看看这条SQL的详细执行统计",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "sql_id": "<sql_id>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "返回指定 SQL_ID 的 executions/elapsed/cpu/buffer_gets/disk_reads/plan_hash_value 等详细统计"
+    },
+    "assertions": [
+      {
+        "name": "sql_id 存在时返回详细统计",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$sqlstats WHERE sql_id = '<sql_id>'",
+        "logic": "若 cnt >= 1，skill 应返回该 sql_id 的详细统计；若 cnt = 0，skill 应提示 sql_id 不存在"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "先执行一条 SQL 获取其 sql_id，再触发单条统计，验证 v$sqlstats 输出"
+  },
+  {
+    "skill": "db-oracle-diagnose-slow-query",
+    "skill_version": "v1.0.0",
+    "case_id": "SLOWQ-31",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "参数校验",
+    "metric": "time_range_hours 边界",
+    "target_state": "normal",
+    "judgment_rule": "time_range_hours 控制 AWR 历史查询时间范围，边界值应正确过滤",
+    "user_input": "分析最近1小时的慢SQL",
+    "params": {
+      "instance_host": "<host>:<port>/<service>",
+      "time_range_hours": 1
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "仅返回最近 1 小时 AWR 快照范围内的慢 SQL"
+    },
+    "assertions": [
+      {
+        "name": "时间范围过滤生效",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(1, 'HOUR')",
+        "logic": "skill 返回的 AWR 慢 SQL 应仅来自 begin_interval_time >= SYSDATE - 1 小时的快照"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 time_range_hours=1 触发，验证时间范围过滤逻辑"
+  }
+]
