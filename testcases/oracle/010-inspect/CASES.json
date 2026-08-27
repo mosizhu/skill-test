@@ -1,0 +1,1501 @@
+[
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-001",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "实例基础信息",
+    "metric": "版本/运行时间/归档模式/字符集",
+    "target_state": "normal",
+    "judgment_rule": "实例基础信息可正常采集，版本/运行时间/归档模式/字符集与数据字典一致",
+    "user_input": "帮我巡检一下这个 Oracle 实例，先看看它的版本、运行了多久、归档模式是什么，还有字符集配置。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "basic"
+    },
+    "expected_output": {
+      "target_judgment": "正常采集",
+      "description": "输出巡检概览与实例基础信息：实例名、版本、启动时间、运行天数、归档模式、字符集，且与数据字典一致"
+    },
+    "assertions": [
+      {
+        "name": "版本一致",
+        "ground_truth_sql": "SELECT version FROM v$instance",
+        "logic": "skill 输出的版本号 == ground_truth 的 version"
+      },
+      {
+        "name": "归档模式一致",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "skill 输出的归档模式 == ground_truth 的 log_mode（ARCHIVELOG/NOARCHIVELOG）"
+      },
+      {
+        "name": "字符集一致",
+        "ground_truth_sql": "SELECT value FROM nls_database_parameters WHERE parameter='NLS_CHARACTERSET'",
+        "logic": "skill 输出的字符集 == ground_truth 的 value"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "基础信息为只读可采集项，直接读取实际值并与 skill 输出比对。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-002",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "实例基础信息",
+    "metric": "连接失败处理",
+    "target_state": "error",
+    "judgment_rule": "实例连接失败时返回明确连接错误信息，不输出数据库原始异常堆栈",
+    "user_input": "帮我巡检一下这个实例，地址我可能填错了，你试试看能不能连上。",
+    "params": {
+      "instance_host": "10.255.255.1:1521/nonexist"
+    },
+    "expected_output": {
+      "target_judgment": "连接失败被正确标记",
+      "description": "返回明确的连接失败错误信息，不输出原始异常堆栈，不继续执行巡检"
+    },
+    "assertions": [
+      {
+        "name": "连接失败被识别",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 输出包含连接失败/无法连接类提示，且不包含数据库原始异常堆栈文本"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用不可达的 instance_host 触发连接失败，验证错误处理路径。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-003",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "实例基础信息",
+    "metric": "NOARCHIVELOG 模式识别",
+    "target_state": "warning",
+    "judgment_rule": "log_mode=NOARCHIVELOG 时正确标注非归档模式（影响备份/恢复能力）",
+    "user_input": "巡检一下这个库，重点看下它是不是归档模式，如果不是归档模式要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "basic"
+    },
+    "expected_output": {
+      "target_judgment": "正确标注归档模式",
+      "description": "若 log_mode=NOARCHIVELOG，输出中明确标注非归档模式并提示备份/恢复风险"
+    },
+    "assertions": [
+      {
+        "name": "归档模式标注正确",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "若 ground_truth 的 log_mode='NOARCHIVELOG'，则 skill 输出必须标注非归档模式；若为 ARCHIVELOG 则不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制切换归档模式，读取实际 log_mode 验证标注逻辑；真实 NOARCHIVELOG 环境自动覆盖该分支。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-004",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "表空间使用率",
+    "metric": "表空间使用率 OK 状态",
+    "target_state": "normal",
+    "judgment_rule": "used_pct < 80 时状态为 OK（默认阈值 80）",
+    "user_input": "帮我看看所有表空间的使用率，有没有快满的，顺便按使用率排个序。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "输出表空间使用率排名，使用率 < 80% 的表空间状态为 OK，不进入告警列表"
+    },
+    "assertions": [
+      {
+        "name": "OK 状态判定正确",
+        "ground_truth_sql": "SELECT tablespace_name, ROUND(NVL(b.used_mb,0)/a.total_mb*100,2) AS used_pct FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 total_mb FROM dba_data_files GROUP BY tablespace_name) a LEFT JOIN (SELECT tablespace_name, SUM(bytes)/1024/1024 used_mb FROM dba_segments GROUP BY tablespace_name) b ON a.tablespace_name=b.tablespace_name",
+        "logic": "对每个表空间，若 ground_truth 的 used_pct < 80，则 skill 输出该表空间状态必须为 OK/正常，不得标记为告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造低使用率表空间，读取实际 used_pct 验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-005",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "表空间使用率",
+    "metric": "表空间使用率 WARNING 状态",
+    "target_state": "warning",
+    "judgment_rule": "80 <= used_pct < 95 时状态为 WARNING",
+    "user_input": "巡检一下表空间，看看有没有使用率超过 80% 需要关注的。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "使用率在 [80,95) 的表空间状态为 WARNING，进入告警列表并提示扩容关注"
+    },
+    "assertions": [
+      {
+        "name": "WARNING 状态判定正确",
+        "ground_truth_sql": "SELECT tablespace_name, ROUND(NVL(b.used_mb,0)/a.total_mb*100,2) AS used_pct FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 total_mb FROM dba_data_files GROUP BY tablespace_name) a LEFT JOIN (SELECT tablespace_name, SUM(bytes)/1024/1024 used_mb FROM dba_segments GROUP BY tablespace_name) b ON a.tablespace_name=b.tablespace_name",
+        "logic": "对每个表空间，若 80 <= ground_truth 的 used_pct < 95，则 skill 输出该表空间状态必须为 WARNING/告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 80-95% 使用率，读取实际 used_pct 验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-006",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "表空间使用率",
+    "metric": "表空间使用率 CRITICAL 状态",
+    "target_state": "severe",
+    "judgment_rule": "used_pct >= 95 时状态为 CRITICAL",
+    "user_input": "帮我看看有没有表空间快满了，使用率超过 95% 的要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "使用率 >= 95% 的表空间状态为 CRITICAL，进入高风险告警列表，综合评分扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "CRITICAL 状态判定正确",
+        "ground_truth_sql": "SELECT tablespace_name, ROUND(NVL(b.used_mb,0)/a.total_mb*100,2) AS used_pct FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 total_mb FROM dba_data_files GROUP BY tablespace_name) a LEFT JOIN (SELECT tablespace_name, SUM(bytes)/1024/1024 used_mb FROM dba_segments GROUP BY tablespace_name) b ON a.tablespace_name=b.tablespace_name",
+        "logic": "对每个表空间，若 ground_truth 的 used_pct >= 95，则 skill 输出该表空间状态必须为 CRITICAL/严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 >=95% 使用率，读取实际 used_pct 验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-007",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "表空间使用率",
+    "metric": "自定义告警阈值 tablespace_alert_pct",
+    "target_state": "warning",
+    "judgment_rule": "使用自定义 tablespace_alert_pct 阈值判定告警（默认 80，可调）",
+    "user_input": "这次巡检把表空间告警阈值调高到 90%，低于 90% 的不用提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage",
+      "tablespace_alert_pct": 90
+    },
+    "expected_output": {
+      "target_judgment": "按自定义阈值判定",
+      "description": "使用 tablespace_alert_pct=90 作为告警阈值，used_pct >= 90 才标记告警"
+    },
+    "assertions": [
+      {
+        "name": "自定义阈值生效",
+        "ground_truth_sql": "SELECT tablespace_name, ROUND(NVL(b.used_mb,0)/a.total_mb*100,2) AS used_pct FROM (SELECT tablespace_name, SUM(bytes)/1024/1024 total_mb FROM dba_data_files GROUP BY tablespace_name) a LEFT JOIN (SELECT tablespace_name, SUM(bytes)/1024/1024 used_mb FROM dba_segments GROUP BY tablespace_name) b ON a.tablespace_name=b.tablespace_name",
+        "logic": "对每个表空间，若 ground_truth 的 used_pct < 90，则 skill 输出不得标记为告警（验证自定义阈值覆盖默认 80）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "验证 tablespace_alert_pct 参数是否真正覆盖默认阈值，读取实际 used_pct 比对判定边界。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-008",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "表空间使用率",
+    "metric": "离线表空间检测",
+    "target_state": "warning",
+    "judgment_rule": "status != 'ONLINE' 的表空间被识别为离线并标记",
+    "user_input": "巡检一下有没有表空间处于离线状态，离线的话要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "识别离线表空间",
+      "description": "输出中列出 status != 'ONLINE' 的离线表空间并标记异常"
+    },
+    "assertions": [
+      {
+        "name": "离线表空间识别正确",
+        "ground_truth_sql": "SELECT tablespace_name FROM dba_tablespaces WHERE status != 'ONLINE'",
+        "logic": "skill 输出的离线表空间集合 == ground_truth 返回的 tablespace_name 集合"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制将表空间置为离线，读取实际 status 验证离线识别逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-009",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "表空间使用率",
+    "metric": "数据文件状态异常检测",
+    "target_state": "warning",
+    "judgment_rule": "status != 'AVAILABLE' 或 online_status != 'ONLINE' 的数据文件被识别为异常",
+    "user_input": "帮我看看有没有数据文件状态异常，比如不可用或者离线的。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "识别异常数据文件",
+      "description": "输出中列出 status != 'AVAILABLE' 或 online_status != 'ONLINE' 的数据文件并标记异常"
+    },
+    "assertions": [
+      {
+        "name": "异常数据文件识别正确",
+        "ground_truth_sql": "SELECT file_name FROM dba_data_files WHERE status != 'AVAILABLE' OR online_status != 'ONLINE'",
+        "logic": "skill 输出的异常数据文件集合 == ground_truth 返回的 file_name 集合"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造异常数据文件，读取实际 status/online_status 验证识别逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-010",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "表空间使用率",
+    "metric": "表空间增长趋势（30 天）",
+    "target_state": "normal",
+    "judgment_rule": "基于 DBA_HIST 计算 30 天增长量与日均增长，输出增长趋势",
+    "user_input": "帮我看看最近 30 天哪些表空间增长最快，方便我做容量规划。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage"
+    },
+    "expected_output": {
+      "target_judgment": "输出增长趋势",
+      "description": "输出各表空间 30 天增长量、日均增长、增长百分比，按增长量降序"
+    },
+    "assertions": [
+      {
+        "name": "增长量计算正确",
+        "ground_truth_sql": "SELECT tablespace_name, ROUND(SUM(tablespace_size*8192)/1024/1024,2) AS total_mb FROM dba_hist_tbspc_space_usage WHERE snap_id=(SELECT MAX(snap_id) FROM dba_hist_tbspc_space_usage) GROUP BY tablespace_name",
+        "logic": "skill 输出的最新表空间大小 == ground_truth 的 total_mb（允许浮点误差）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "依赖 DBA_HIST 快照数据，当前环境可能无历史快照，读取实际值验证计算逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-011",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Buffer Cache Hit Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Buffer Cache Hit Ratio >= 95 时状态为 OK",
+    "user_input": "帮我看看数据库的 Buffer Cache 命中率怎么样，是不是正常水平。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Buffer Cache Hit Ratio >= 95% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Hit OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(phy.value/(cur.value+con.value)))*100,2) AS hit_pct FROM v$sysstat cur, v$sysstat phy, v$sysstat con WHERE cur.name='db block gets' AND con.name='consistent gets' AND phy.name='physical reads'",
+        "logic": "若 ground_truth 的 hit_pct >= 95，则 skill 输出 Buffer Cache Hit Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-012",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Buffer Cache Hit Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "90 <= Buffer Cache Hit Ratio < 95 时状态为 WARNING",
+    "user_input": "巡检一下 Buffer Cache 命中率，如果低于 95% 要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Buffer Cache Hit Ratio 在 [90,95) 时状态为 WARNING，提示检查全表扫描 SQL"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Hit WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(phy.value/(cur.value+con.value)))*100,2) AS hit_pct FROM v$sysstat cur, v$sysstat phy, v$sysstat con WHERE cur.name='db block gets' AND con.name='consistent gets' AND phy.name='physical reads'",
+        "logic": "若 90 <= ground_truth 的 hit_pct < 95，则 skill 输出 Buffer Cache Hit Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-013",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Buffer Cache Hit Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Buffer Cache Hit Ratio < 90 时状态为 CRITICAL",
+    "user_input": "帮我看看 Buffer Cache 命中率是不是太低了，低于 90% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Buffer Cache Hit Ratio < 90% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Hit CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(phy.value/(cur.value+con.value)))*100,2) AS hit_pct FROM v$sysstat cur, v$sysstat phy, v$sysstat con WHERE cur.name='db block gets' AND con.name='consistent gets' AND phy.name='physical reads'",
+        "logic": "若 ground_truth 的 hit_pct < 90，则 skill 输出 Buffer Cache Hit Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-014",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Library Cache Hit Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Library Cache Hit Ratio >= 95 时状态为 OK",
+    "user_input": "帮我看看 Library Cache 命中率，判断一下硬解析是不是正常。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Library Cache Hit Ratio >= 95% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Library Hit OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(pinhits.value/pins.value))*100,2) AS hit_pct FROM v$librarycache WHERE namespace='SQL AREA'",
+        "logic": "若 ground_truth 的 hit_pct >= 95，则 skill 输出 Library Cache Hit Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-015",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Library Cache Hit Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "90 <= Library Cache Hit Ratio < 95 时状态为 WARNING",
+    "user_input": "巡检一下 Library Cache 命中率，低于 95% 要提醒我检查硬解析。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Library Cache Hit Ratio 在 [90,95) 时状态为 WARNING，提示检查硬解析/绑定变量"
+    },
+    "assertions": [
+      {
+        "name": "Library Hit WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(pinhits.value/pins.value))*100,2) AS hit_pct FROM v$librarycache WHERE namespace='SQL AREA'",
+        "logic": "若 90 <= ground_truth 的 hit_pct < 95，则 skill 输出 Library Cache Hit Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-016",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Library Cache Hit Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Library Cache Hit Ratio < 90 时状态为 CRITICAL",
+    "user_input": "帮我看看 Library Cache 命中率是不是太低了，低于 90% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Library Cache Hit Ratio < 90% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Library Hit CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(pinhits.value/pins.value))*100,2) AS hit_pct FROM v$librarycache WHERE namespace='SQL AREA'",
+        "logic": "若 ground_truth 的 hit_pct < 90，则 skill 输出 Library Cache Hit Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "命中率由实例运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-017",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Soft Parse Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Soft Parse Ratio >= 95 时状态为 OK",
+    "user_input": "帮我看看软解析率，判断一下绑定变量使用情况。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Soft Parse Ratio >= 95% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(hard.value/total.value))*100,2) AS hit_pct FROM v$sysstat hard, v$sysstat total WHERE hard.name='parse count (hard)' AND total.name='parse count (total)'",
+        "logic": "若 ground_truth 的 hit_pct >= 95，则 skill 输出 Soft Parse Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "软解析率由运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-018",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Soft Parse Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "90 <= Soft Parse Ratio < 95 时状态为 WARNING",
+    "user_input": "巡检一下软解析率，低于 95% 要提醒我检查绑定变量。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Soft Parse Ratio 在 [90,95) 时状态为 WARNING，提示检查绑定变量/CURSOR_SHARING"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(hard.value/total.value))*100,2) AS hit_pct FROM v$sysstat hard, v$sysstat total WHERE hard.name='parse count (hard)' AND total.name='parse count (total)'",
+        "logic": "若 90 <= ground_truth 的 hit_pct < 95，则 skill 输出 Soft Parse Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "软解析率由运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-019",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Soft Parse Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Soft Parse Ratio < 90 时状态为 CRITICAL",
+    "user_input": "帮我看看软解析率是不是太低了，低于 90% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Soft Parse Ratio < 90% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(hard.value/total.value))*100,2) AS hit_pct FROM v$sysstat hard, v$sysstat total WHERE hard.name='parse count (hard)' AND total.name='parse count (total)'",
+        "logic": "若 ground_truth 的 hit_pct < 90，则 skill 输出 Soft Parse Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "软解析率由运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-020",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Memory Sorts Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Memory Sorts Ratio >= 95 时状态为 OK",
+    "user_input": "帮我看看内存排序率，判断一下 PGA 配置是否合理。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Memory Sorts Ratio >= 95% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Memory Sorts OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND((mem.value/(mem.value+disk.value))*100,2) AS hit_pct FROM v$sysstat mem, v$sysstat disk WHERE mem.name='sorts (memory)' AND disk.name='sorts (disk)'",
+        "logic": "若 ground_truth 的 hit_pct >= 95，则 skill 输出 Memory Sorts Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "内存排序率由运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-021",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Memory Sorts Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "90 <= Memory Sorts Ratio < 95 时状态为 WARNING",
+    "user_input": "巡检一下内存排序率，低于 95% 要提醒我检查 PGA。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Memory Sorts Ratio 在 [90,95) 时状态为 WARNING，提示增大 PGA_AGGREGATE_TARGET"
+    },
+    "assertions": [
+      {
+        "name": "Memory Sorts WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND((mem.value/(mem.value+disk.value))*100,2) AS hit_pct FROM v$sysstat mem, v$sysstat disk WHERE mem.name='sorts (memory)' AND disk.name='sorts (disk)'",
+        "logic": "若 90 <= ground_truth 的 hit_pct < 95，则 skill 输出 Memory Sorts Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "内存排序率由运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-022",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "性能命中率",
+    "metric": "Memory Sorts Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Memory Sorts Ratio < 90 时状态为 CRITICAL",
+    "user_input": "帮我看看内存排序率是不是太低了，低于 90% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Memory Sorts Ratio < 90% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Memory Sorts CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND((mem.value/(mem.value+disk.value))*100,2) AS hit_pct FROM v$sysstat mem, v$sysstat disk WHERE mem.name='sorts (memory)' AND disk.name='sorts (disk)'",
+        "logic": "若 ground_truth 的 hit_pct < 90，则 skill 输出 Memory Sorts Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "内存排序率由运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-023",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Row Cache Hit Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Row Cache Hit Ratio >= 90 时状态为 OK",
+    "user_input": "帮我看看行缓存命中率，判断一下字典缓存是否正常。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Row Cache Hit Ratio >= 90% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND(SUM(gets-getmisses)/SUM(gets)*100,2) AS hit_pct FROM v$rowcache",
+        "logic": "若 ground_truth 的 hit_pct >= 90，则 skill 输出 Row Cache Hit Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "行缓存命中率由运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-024",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Row Cache Hit Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "85 <= Row Cache Hit Ratio < 90 时状态为 WARNING",
+    "user_input": "巡检一下行缓存命中率，低于 90% 要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Row Cache Hit Ratio 在 [85,90) 时状态为 WARNING，提示检查 DDL 频率/增大共享池"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND(SUM(gets-getmisses)/SUM(gets)*100,2) AS hit_pct FROM v$rowcache",
+        "logic": "若 85 <= ground_truth 的 hit_pct < 90，则 skill 输出 Row Cache Hit Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "行缓存命中率由运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-025",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Row Cache Hit Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Row Cache Hit Ratio < 85 时状态为 CRITICAL",
+    "user_input": "帮我看看行缓存命中率是不是太低了，低于 85% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Row Cache Hit Ratio < 85% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND(SUM(gets-getmisses)/SUM(gets)*100,2) AS hit_pct FROM v$rowcache",
+        "logic": "若 ground_truth 的 hit_pct < 85，则 skill 输出 Row Cache Hit Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "行缓存命中率由运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-026",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Latch Hit Ratio OK",
+    "target_state": "normal",
+    "judgment_rule": "Latch Hit Ratio >= 99 时状态为 OK",
+    "user_input": "帮我看看 Latch 命中率，判断一下有没有热块竞争。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "OK",
+      "description": "Latch Hit Ratio >= 99% 时状态为 OK，不告警"
+    },
+    "assertions": [
+      {
+        "name": "Latch OK 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(m.value/g.value))*100,2) AS hit_pct FROM v$sysstat m, v$sysstat g WHERE m.name='latch misses' AND g.name='latch gets'",
+        "logic": "若 ground_truth 的 hit_pct >= 99，则 skill 输出 Latch Hit Ratio 状态必须为 OK"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "Latch 命中率由运行负载决定，无法强制构造，读取实际值验证 OK 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-027",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Latch Hit Ratio WARNING",
+    "target_state": "warning",
+    "judgment_rule": "95 <= Latch Hit Ratio < 99 时状态为 WARNING",
+    "user_input": "巡检一下 Latch 命中率，低于 99% 要提醒我检查热块。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "Latch Hit Ratio 在 [95,99) 时状态为 WARNING，提示检查热块 SQL/高并发访问"
+    },
+    "assertions": [
+      {
+        "name": "Latch WARNING 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(m.value/g.value))*100,2) AS hit_pct FROM v$sysstat m, v$sysstat g WHERE m.name='latch misses' AND g.name='latch gets'",
+        "logic": "若 95 <= ground_truth 的 hit_pct < 99，则 skill 输出 Latch Hit Ratio 状态必须为 WARNING"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "Latch 命中率由运行负载决定，无法强制构造，读取实际值验证 WARNING 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-028",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "性能命中率",
+    "metric": "Latch Hit Ratio CRITICAL",
+    "target_state": "severe",
+    "judgment_rule": "Latch Hit Ratio < 95 时状态为 CRITICAL",
+    "user_input": "帮我看看 Latch 命中率是不是太低了，低于 95% 要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "Latch Hit Ratio < 95% 时状态为 CRITICAL，性能维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "Latch CRITICAL 判定正确",
+        "ground_truth_sql": "SELECT ROUND((1-(m.value/g.value))*100,2) AS hit_pct FROM v$sysstat m, v$sysstat g WHERE m.name='latch misses' AND g.name='latch gets'",
+        "logic": "若 ground_truth 的 hit_pct < 95，则 skill 输出 Latch Hit Ratio 状态必须为 CRITICAL"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "Latch 命中率由运行负载决定，无法强制构造，读取实际值验证 CRITICAL 分支判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-029",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "会话负载",
+    "metric": "会话使用率 > 80%",
+    "target_state": "warning",
+    "judgment_rule": "当前会话数 / 最大会话数 > 80% 时扣 5 分并告警",
+    "user_input": "帮我看看当前会话数是不是快满了，超过 80% 要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "会话使用率 > 80% 时输出告警，会话维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "会话使用率计算正确",
+        "ground_truth_sql": "SELECT ROUND((SELECT COUNT(*) FROM v$session)/(SELECT value FROM v$parameter WHERE name='sessions')*100,2) AS used_pct FROM dual",
+        "logic": "若 ground_truth 的 used_pct > 80，则 skill 输出必须标记会话资源告警并扣分；否则不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造高会话使用率，读取实际 used_pct 验证 >80% 判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-030",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "会话负载",
+    "metric": "进程使用率 > 80%",
+    "target_state": "warning",
+    "judgment_rule": "当前进程数 / 最大进程数 > 80% 时扣 5 分并告警",
+    "user_input": "帮我看看当前进程数是不是快满了，超过 80% 要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "进程使用率 > 80% 时输出告警，会话维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "进程使用率计算正确",
+        "ground_truth_sql": "SELECT ROUND((SELECT COUNT(*) FROM v$process)/(SELECT value FROM v$parameter WHERE name='processes')*100,2) AS used_pct FROM dual",
+        "logic": "若 ground_truth 的 used_pct > 80，则 skill 输出必须标记进程资源告警并扣分；否则不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造高进程使用率，读取实际 used_pct 验证 >80% 判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-031",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "会话负载",
+    "metric": "阻塞会话检测",
+    "target_state": "warning",
+    "judgment_rule": "存在 blocking_session 的会话被识别为阻塞会话并输出阻塞链",
+    "user_input": "帮我看看现在有没有阻塞会话，有的话把阻塞链列出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "识别阻塞会话",
+      "description": "输出 blocking_session 非空的会话及其阻塞链信息（阻塞者/被阻塞者）"
+    },
+    "assertions": [
+      {
+        "name": "阻塞会话识别正确",
+        "ground_truth_sql": "SELECT sid FROM v$session WHERE blocking_session IS NOT NULL AND blocking_session_status='VALID'",
+        "logic": "skill 输出的阻塞会话 sid 集合 == ground_truth 返回的 sid 集合"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造阻塞会话，读取实际 blocking_session 验证识别逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-032",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "会话负载",
+    "metric": "长时间运行 SQL（> 5 分钟）",
+    "target_state": "warning",
+    "judgment_rule": "活跃 USER 会话 last_call_et > 300 秒被识别为长时间运行 SQL",
+    "user_input": "帮我看看有没有运行超过 5 分钟的 SQL，有的话列出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "识别长时间 SQL",
+      "description": "输出 last_call_et > 300 秒的活跃 USER 会话及其 SQL 文本"
+    },
+    "assertions": [
+      {
+        "name": "长时间 SQL 识别正确",
+        "ground_truth_sql": "SELECT sid FROM v$session WHERE status='ACTIVE' AND type='USER' AND last_call_et > 300",
+        "logic": "skill 输出的长时间运行 SQL 会话 sid 集合 == ground_truth 返回的 sid 集合"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造长时间运行 SQL，读取实际 last_call_et 验证 >300s 判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-033",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "备份状态",
+    "metric": "最近全量备份 > 7 天",
+    "target_state": "warning",
+    "judgment_rule": "最近全量备份超过 7 天扣 5 分，超过 14 天扣 10 分",
+    "user_input": "帮我检查一下最近一次全量备份是什么时候，超过 7 天没备份要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup"
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "最近全量备份时间距当前超过 7 天时输出备份时效告警，备份维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "备份时效判定正确",
+        "ground_truth_sql": "SELECT MAX(completion_time) AS last_backup FROM v$rman_backup_job_details WHERE input_type LIKE '%DB%'",
+        "logic": "若 SYSDATE - ground_truth 的 last_backup > 7，则 skill 输出必须标记备份时效告警并扣 5 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造备份时间，读取实际最近备份时间验证 >7 天判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-034",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "备份状态",
+    "metric": "最近全量备份 > 14 天",
+    "target_state": "severe",
+    "judgment_rule": "最近全量备份超过 14 天扣 10 分",
+    "user_input": "帮我检查一下最近一次全量备份，如果超过 14 天没备份要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup"
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "最近全量备份时间距当前超过 14 天时输出严重备份时效告警，备份维度扣 10 分"
+    },
+    "assertions": [
+      {
+        "name": "备份时效严重判定正确",
+        "ground_truth_sql": "SELECT MAX(completion_time) AS last_backup FROM v$rman_backup_job_details WHERE input_type LIKE '%DB%'",
+        "logic": "若 SYSDATE - ground_truth 的 last_backup > 14，则 skill 输出必须标记严重备份时效告警并扣 10 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造备份时间，读取实际最近备份时间验证 >14 天判定逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-035",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份状态",
+    "metric": "归档日志连续性（GAP 检测）",
+    "target_state": "warning",
+    "judgment_rule": "归档日志序列号存在断档（gap_count > 0）时标记归档不连续",
+    "user_input": "帮我检查一下最近 7 天的归档日志有没有断档，有的话要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup"
+    },
+    "expected_output": {
+      "target_judgment": "识别归档断档",
+      "description": "输出各 thread 的归档序列号范围与 gap_count，gap_count > 0 时标记归档不连续"
+    },
+    "assertions": [
+      {
+        "name": "归档断档计算正确",
+        "ground_truth_sql": "SELECT thread#, MAX(sequence#)-MIN(sequence#)+1-COUNT(*) AS gap_count FROM v$archived_log WHERE completion_time > SYSDATE-7 GROUP BY thread#",
+        "logic": "skill 输出的 gap_count == ground_truth 的 gap_count；若 gap_count > 0 则必须标记归档不连续"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造归档断档，读取实际归档序列号验证 gap 计算逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-036",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份状态",
+    "metric": "闪回恢复区空间",
+    "target_state": "normal",
+    "judgment_rule": "输出闪回恢复区空间使用率，接近满时标记告警",
+    "user_input": "帮我看看闪回恢复区空间用了多少，会不会很快满。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup"
+    },
+    "expected_output": {
+      "target_judgment": "输出闪回区使用率",
+      "description": "输出闪回恢复区 limit/used/reclaimable 及使用率，使用率过高时标记告警"
+    },
+    "assertions": [
+      {
+        "name": "闪回区使用率计算正确",
+        "ground_truth_sql": "SELECT ROUND((space_used-space_reclaimable)/space_limit*100,2) AS used_pct FROM v$recovery_file_dest",
+        "logic": "skill 输出的闪回区使用率 == ground_truth 的 used_pct（允许浮点误差）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造闪回区空间，读取实际使用率验证计算逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-037",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "DG 同步状态",
+    "metric": "DG 传输/应用延迟 > 30s",
+    "target_state": "warning",
+    "judgment_rule": "DG 传输或应用延迟 > 30 秒时扣 5 分",
+    "user_input": "帮我检查一下备库的同步延迟，超过 30 秒要提醒我。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup",
+      "include_dg": true
+    },
+    "expected_output": {
+      "target_judgment": "WARNING",
+      "description": "DG transport lag 或 apply lag > 30 秒时输出同步延迟告警，DG 维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "DG 延迟判定正确",
+        "ground_truth_sql": "SELECT name, value FROM v$dataguard_stats WHERE name IN ('transport lag','apply lag')",
+        "logic": "若 ground_truth 中任一 lag 值 > 30 秒，则 skill 输出必须标记 DG 同步延迟告警并扣 5 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 DG 延迟，读取实际 lag 值验证 >30s 判定逻辑；非 DG 环境该维度自动跳过。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-038",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "DG 同步状态",
+    "metric": "DG GAP 存在",
+    "target_state": "severe",
+    "judgment_rule": "DG 存在 GAP 时扣 5 分",
+    "user_input": "帮我检查一下备库有没有 GAP，有的话要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "backup",
+      "include_dg": true
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "DG 存在 GAP 时输出 GAP 告警，DG 维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "DG GAP 判定正确",
+        "ground_truth_sql": "SELECT gap_status FROM v$archive_dest_status WHERE database_mode='STANDBY'",
+        "logic": "若 ground_truth 中任一 gap_status 非空/非 'NO GAP'，则 skill 输出必须标记 DG GAP 告警并扣 5 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 DG GAP，读取实际 gap_status 验证判定逻辑；非 DG 环境该维度自动跳过。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-039",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "DG 同步状态",
+    "metric": "非 DG 环境自动跳过",
+    "target_state": "normal",
+    "judgment_rule": "非 DG 环境 DG 相关查询返回空结果时标记'非 DG 环境'，不报错",
+    "user_input": "帮我做一次全面巡检，如果这个库不是备库环境，DG 相关的检查就跳过吧。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full",
+      "include_dg": true
+    },
+    "expected_output": {
+      "target_judgment": "非 DG 环境跳过",
+      "description": "非 DG 环境时 DG 维度标记'非 DG 环境'并跳过，不报错、不影响整体评分"
+    },
+    "assertions": [
+      {
+        "name": "非 DG 环境处理正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$archive_dest_status WHERE database_mode='STANDBY'",
+        "logic": "若 ground_truth 的 cnt = 0，则 skill 输出必须标记'非 DG 环境'且不报错；若 cnt > 0 则不得误标"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "读取实际 DG 配置判断是否 DG 环境，验证非 DG 环境自动跳过逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-040",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "无效对象",
+    "metric": "INVALID 对象检测",
+    "target_state": "warning",
+    "judgment_rule": "存在 INVALID 对象时扣 3 分并列出",
+    "user_input": "帮我检查一下数据库里有没有无效对象，有的话列出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "security"
+    },
+    "expected_output": {
+      "target_judgment": "识别 INVALID 对象",
+      "description": "输出 status='INVALID' 的对象统计与详情，存在时对象维度扣 3 分"
+    },
+    "assertions": [
+      {
+        "name": "INVALID 对象识别正确",
+        "ground_truth_sql": "SELECT owner, object_name, object_type FROM dba_objects WHERE status='INVALID'",
+        "logic": "skill 输出的 INVALID 对象集合 == ground_truth 返回的集合；若集合非空则必须扣 3 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 INVALID 对象，读取实际 status 验证识别与扣分逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-041",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "无效对象",
+    "metric": "UNUSABLE 索引检测",
+    "target_state": "warning",
+    "judgment_rule": "存在 UNUSABLE 索引时扣 5 分并列出",
+    "user_input": "帮我检查一下有没有不可用的索引，有的话列出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "security"
+    },
+    "expected_output": {
+      "target_judgment": "识别 UNUSABLE 索引",
+      "description": "输出 status='UNUSABLE' 的索引列表，存在时对象维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "UNUSABLE 索引识别正确",
+        "ground_truth_sql": "SELECT owner, index_name, table_name FROM dba_indexes WHERE status='UNUSABLE'",
+        "logic": "skill 输出的 UNUSABLE 索引集合 == ground_truth 返回的集合；若集合非空则必须扣 5 分"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 UNUSABLE 索引，读取实际 status 验证识别与扣分逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-042",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "告警日志",
+    "metric": "存在 ORA- 错误",
+    "target_state": "warning",
+    "judgment_rule": "最近 N 天存在 ORA- 错误时扣 5 分并统计",
+    "user_input": "帮我扫描一下最近 7 天的告警日志，看看有没有 ORA- 错误。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full",
+      "alert_log_days": 7
+    },
+    "expected_output": {
+      "target_judgment": "识别 ORA- 错误",
+      "description": "输出最近 7 天 ORA- 错误分类统计，存在时告警维度扣 5 分"
+    },
+    "assertions": [
+      {
+        "name": "ORA- 错误统计正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$diag_alert_ext WHERE message_text LIKE '%ORA-%' AND originating_timestamp > SYSDATE-7",
+        "logic": "若 ground_truth 的 cnt > 0，则 skill 输出必须标记 ORA- 错误并扣 5 分；否则不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造 ORA- 错误，读取实际告警日志验证统计与扣分逻辑；无权限时验证跳过标注。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-043",
+    "type": "boundary",
+    "priority": "P0",
+    "dimension": "告警日志",
+    "metric": "严重错误 ORA-00600/ORA-07445",
+    "target_state": "severe",
+    "judgment_rule": "存在 ORA-00600 或 ORA-07445 严重错误时扣 10 分",
+    "user_input": "帮我扫描告警日志，如果有 ORA-00600 或 ORA-07445 这种严重错误要重点标出来。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full",
+      "alert_log_days": 7
+    },
+    "expected_output": {
+      "target_judgment": "CRITICAL",
+      "description": "存在 ORA-00600/ORA-07445 时输出严重错误告警，告警维度扣 10 分"
+    },
+    "assertions": [
+      {
+        "name": "严重错误判定正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$diag_alert_ext WHERE (message_text LIKE '%ORA-00600%' OR message_text LIKE '%ORA-07445%') AND originating_timestamp > SYSDATE-7",
+        "logic": "若 ground_truth 的 cnt > 0，则 skill 输出必须标记严重错误并扣 10 分；否则不得误报"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制构造严重错误，读取实际告警日志验证 ORA-00600/ORA-07445 判定与扣分逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-044",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "告警日志",
+    "metric": "无告警日志访问权限",
+    "target_state": "normal",
+    "judgment_rule": "无告警日志访问权限时跳过并标注'无告警日志访问权限'，不报错",
+    "user_input": "帮我做一次全面巡检，如果读不了告警日志就跳过，别报错。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full",
+      "alert_log_days": 7
+    },
+    "expected_output": {
+      "target_judgment": "无权限跳过",
+      "description": "无告警日志访问权限时该维度标记'无告警日志访问权限'并跳过，不影响整体巡检"
+    },
+    "assertions": [
+      {
+        "name": "无权限处理正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$diag_alert_ext WHERE ROWNUM <= 1",
+        "logic": "若 ground_truth 查询因权限失败，则 skill 输出必须标记'无告警日志访问权限'且不报错；若可查询则正常输出统计"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以当前连接对 v$diag_alert_ext 的访问权限判断，验证无权限跳过标注逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-045",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "等待事件",
+    "metric": "等待事件 TOP N",
+    "target_state": "normal",
+    "judgment_rule": "输出当前实时等待事件分布与系统级等待事件 TOP N（默认 10）",
+    "user_input": "帮我分析一下当前数据库的等待事件，看看主要瓶颈在哪。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "perf",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "输出等待事件 TOP N",
+      "description": "输出当前实时等待事件分布与系统级等待事件 TOP N，按等待时间降序"
+    },
+    "assertions": [
+      {
+        "name": "等待事件 TOP N 正确",
+        "ground_truth_sql": "SELECT event FROM (SELECT event, SUM(time_waited_micro) AS w FROM v$system_event WHERE wait_class != 'Idle' AND time_waited_micro > 0 GROUP BY event ORDER BY w DESC) WHERE ROWNUM <= 10",
+        "logic": "skill 输出的 TOP N 等待事件集合 == ground_truth 返回的 TOP 10 事件集合"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "等待事件由运行负载决定，无法强制构造，读取实际等待事件验证 TOP N 排序逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-046",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "ASM 磁盘组",
+    "metric": "ASM 磁盘组使用率",
+    "target_state": "normal",
+    "judgment_rule": "ASM 环境输出磁盘组使用率，非 ASM 环境自动跳过",
+    "user_input": "帮我看看 ASM 磁盘组的使用率，如果这个库不是 ASM 环境就跳过。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage",
+      "include_asm": true
+    },
+    "expected_output": {
+      "target_judgment": "输出 ASM 磁盘组使用率",
+      "description": "ASM 环境输出各磁盘组 total/free/used 及使用率；非 ASM 环境标记'非 ASM 环境'并跳过"
+    },
+    "assertions": [
+      {
+        "name": "ASM 磁盘组使用率正确",
+        "ground_truth_sql": "SELECT name, ROUND((total_mb-free_mb)/total_mb*100,2) AS used_pct FROM v$asm_diskgroup",
+        "logic": "若 ground_truth 返回非空，则 skill 输出的磁盘组使用率 == ground_truth 的 used_pct；若为空则标记'非 ASM 环境'"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "读取实际 v$asm_diskgroup 判断是否 ASM 环境，验证使用率计算与非 ASM 跳过逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-047",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "ASM 磁盘组",
+    "metric": "非 ASM 环境自动跳过",
+    "target_state": "normal",
+    "judgment_rule": "非 ASM 环境 ASM 查询返回空结果时标记'非 ASM 环境'，不报错",
+    "user_input": "帮我做一次全面巡检，如果这个库不是 ASM 环境，磁盘组检查就跳过吧。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full",
+      "include_asm": true
+    },
+    "expected_output": {
+      "target_judgment": "非 ASM 环境跳过",
+      "description": "非 ASM 环境时 ASM 维度标记'非 ASM 环境'并跳过，不报错"
+    },
+    "assertions": [
+      {
+        "name": "非 ASM 环境处理正确",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$asm_diskgroup",
+        "logic": "若 ground_truth 的 cnt = 0，则 skill 输出必须标记'非 ASM 环境'且不报错；若 cnt > 0 则不得误标"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "读取实际 v$asm_diskgroup 判断是否 ASM 环境，验证非 ASM 自动跳过逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-048",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "配置参数审查",
+    "metric": "SGA/PGA/连接参数采集",
+    "target_state": "normal",
+    "judgment_rule": "正确采集 SGA/PGA/processes/sessions/open_cursors 等参数值",
+    "user_input": "帮我看看这个库的内存和连接参数配置，比如 SGA、PGA、进程数和会话数。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "basic"
+    },
+    "expected_output": {
+      "target_judgment": "正常采集参数",
+      "description": "输出 SGA/PGA/memory_target/processes/sessions/open_cursors 等参数值，与 v$parameter 一致"
+    },
+    "assertions": [
+      {
+        "name": "参数值一致",
+        "ground_truth_sql": "SELECT name, value FROM v$parameter WHERE name IN ('sga_target','pga_aggregate_target','processes','sessions','open_cursors')",
+        "logic": "skill 输出的每个参数值 == ground_truth 中同名参数的 value"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "参数为只读可采集项，直接读取实际值并与 skill 输出比对。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-049",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "综合健康评分",
+    "metric": "综合健康评分计算",
+    "target_state": "normal",
+    "judgment_rule": "按各维度扣分规则汇总综合健康评分（满分 100）",
+    "user_input": "帮我做一次全面巡检，最后给我一个综合健康评分和风险项汇总。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "full"
+    },
+    "expected_output": {
+      "target_judgment": "输出综合评分",
+      "description": "输出各维度得分、综合健康评分（满分 100）、风险项汇总与修复建议"
+    },
+    "assertions": [
+      {
+        "name": "综合评分计算正确",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM dba_objects WHERE status='INVALID') AS invalid_cnt, (SELECT COUNT(*) FROM dba_indexes WHERE status='UNUSABLE') AS unusable_cnt FROM dual",
+        "logic": "skill 输出的对象维度扣分 == 依据 ground_truth 的 invalid_cnt*3 + unusable_cnt*5 计算值；综合评分 = 100 - 各维度扣分之和"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "综合评分依赖各维度实际状态，读取实际值验证扣分与汇总逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-050",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "非法 inspect_scope 参数",
+    "target_state": "error",
+    "judgment_rule": "inspect_scope 传入非法值时正确拒绝或回退默认值，不产生错误结果",
+    "user_input": "帮我巡检一下，范围填个不存在的值试试。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "invalid_scope"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝或回退",
+      "description": "对非法 inspect_scope 给出明确提示或回退到默认 full 范围，不输出错误结果"
+    },
+    "assertions": [
+      {
+        "name": "非法参数处理正确",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 输出要么明确提示 inspect_scope 非法，要么按默认 full 范围正常输出，不得静默产生错误结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "传入非法 inspect_scope 值，验证参数校验与回退逻辑。"
+  },
+  {
+    "skill": "db-oracle-inspect",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-inspect-051",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "参数校验",
+    "metric": "非法 tablespace_alert_pct 参数",
+    "target_state": "error",
+    "judgment_rule": "tablespace_alert_pct 传入越界值（如 0 或 >100）时正确拒绝或回退默认值",
+    "user_input": "这次巡检把表空间告警阈值设成 150%，你处理一下。",
+    "params": {
+      "instance_host": "<target>",
+      "inspect_scope": "storage",
+      "tablespace_alert_pct": 150
+    },
+    "expected_output": {
+      "target_judgment": "拒绝或回退",
+      "description": "对越界的 tablespace_alert_pct 给出明确提示或回退到默认 80，不产生错误判定"
+    },
+    "assertions": [
+      {
+        "name": "越界参数处理正确",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 输出要么明确提示 tablespace_alert_pct 越界，要么回退到默认阈值正常输出，不得产生错误判定"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "传入越界 tablespace_alert_pct=150，验证参数校验与回退逻辑。"
+  }
+]

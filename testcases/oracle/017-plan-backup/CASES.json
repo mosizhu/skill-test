@@ -1,0 +1,1386 @@
+[
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "备份类型选型",
+    "metric": "data_size",
+    "target_state": "normal",
+    "judgment_rule": "数据量 < 100GB → 每日全量备份（FULL）",
+    "user_input": "我们有个新库大概 80GB，RPO 24 小时，帮我设计一套备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "推荐每日全量备份",
+      "description": "方案主推每日全量备份 + 归档日志每 4h，保留 7 天，含备份脚本与容量估算"
+    },
+    "assertions": [
+      {
+        "name": "small_db_daily_full",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "total_gb < 100 → skill 应推荐每日全量备份（FULL）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制 <100GB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "备份类型选型",
+    "metric": "data_size",
+    "target_state": "warning",
+    "judgment_rule": "100GB ≤ 数据量 ≤ 1TB → 周全量 + 日增量 + 归档",
+    "user_input": "中库大概 500GB，RPO 1 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐周全量 + 日差异增量 + 归档每 30min",
+      "description": "方案主推周全量 + 日差异增量 + 归档每 30min，保留 14 天"
+    },
+    "assertions": [
+      {
+        "name": "medium_db_weekly_full_daily_incr",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "100 <= total_gb <= 1024 → skill 应推荐周全量 + 日增量 + 归档"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 100GB~1TB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "备份类型选型",
+    "metric": "data_size",
+    "target_state": "severe",
+    "judgment_rule": "数据量 > 1TB → 月全量 + 周增量 + 归档",
+    "user_input": "大库 2TB，RPO 4 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 4,
+      "data_size_gb": 2000
+    },
+    "expected_output": {
+      "target_judgment": "推荐月全量 + 周累积增量 + 归档每 2h",
+      "description": "方案主推月全量 + 周累积增量 + 归档每 2h，保留 30 天，含 SECTION SIZE 分段备份建议"
+    },
+    "assertions": [
+      {
+        "name": "large_db_monthly_full_weekly_incr",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "total_gb > 1024 → skill 应推荐月全量 + 周增量 + 归档"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 >1TB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-04",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "备份类型选型",
+    "metric": "data_size",
+    "target_state": "warning",
+    "judgment_rule": "数据量 = 100GB（边界）→ 归入中库策略（周全量 + 日增量）",
+    "user_input": "库正好 100GB，RPO 1 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 100
+    },
+    "expected_output": {
+      "target_judgment": "归入中库策略（周全量 + 日增量）",
+      "description": "100GB 边界值应归入中库策略，推荐周全量 + 日增量 + 归档"
+    },
+    "assertions": [
+      {
+        "name": "size_100gb_boundary",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "total_gb = 100（边界）→ skill 应归入中库策略（周全量 + 日增量）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造 100GB 边界，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-05",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "备份类型选型",
+    "metric": "data_size",
+    "target_state": "severe",
+    "judgment_rule": "数据量 = 1TB（边界）→ 归入大库策略（月全量 + 周增量）",
+    "user_input": "库正好 1TB，RPO 4 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 4,
+      "data_size_gb": 1024
+    },
+    "expected_output": {
+      "target_judgment": "归入大库策略（月全量 + 周增量）",
+      "description": "1TB 边界值应归入大库策略，推荐月全量 + 周增量 + 归档"
+    },
+    "assertions": [
+      {
+        "name": "size_1tb_boundary",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "total_gb = 1024（边界）→ skill 应归入大库策略（月全量 + 周增量）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造 1TB 边界，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-06",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "增量策略",
+    "metric": "rto",
+    "target_state": "normal",
+    "judgment_rule": "RTO ≤ 2h → 累积增量（CUMULATIVE）",
+    "user_input": "中库 500GB，RPO 1 小时，RTO 2 小时，恢复要快，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "rto_hours": 2,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐累积增量（CUMULATIVE）",
+      "description": "RTO ≤ 2h 时方案推荐累积增量，减少恢复步骤，恢复只需 LEVEL 0 + 最近一次累积增量"
+    },
+    "assertions": [
+      {
+        "name": "rto_le_2h_cumulative",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rto_hours <= 2 → skill 应推荐累积增量（CUMULATIVE）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RTO 为输入参数，可直接构造；执行 agent 以 rto_hours=2 调用并验证 skill 推荐累积增量"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-07",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "增量策略",
+    "metric": "rto",
+    "target_state": "warning",
+    "judgment_rule": "RTO > 2h → 差异增量（DIFFERENTIAL）",
+    "user_input": "中库 500GB，RPO 1 小时，RTO 4 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "rto_hours": 4,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐差异增量（DIFFERENTIAL）",
+      "description": "RTO > 2h 时方案推荐差异增量，备份更小但恢复步骤略多"
+    },
+    "assertions": [
+      {
+        "name": "rto_gt_2h_differential",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rto_hours > 2 → skill 应推荐差异增量（DIFFERENTIAL）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RTO 为输入参数，可直接构造；执行 agent 以 rto_hours=4 调用并验证 skill 推荐差异增量"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-08",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "归档日志频率",
+    "metric": "rpo",
+    "target_state": "severe",
+    "judgment_rule": "RPO ≤ 30min → 归档日志实时/持续备份",
+    "user_input": "业务要求最多丢 30 分钟数据，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 0,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "推荐归档日志实时/持续备份",
+      "description": "极严 RPO 场景方案推荐日全量 + 归档日志实时传输，满足 RPO ≤ 30min"
+    },
+    "assertions": [
+      {
+        "name": "rpo_le_30min_continuous",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rpo_hours <= 0.5 → skill 应推荐归档日志实时/持续备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RPO 为输入参数，可直接构造；执行 agent 以 rpo_hours=0 调用并验证 skill 推荐归档日志实时备份"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-09",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "归档日志频率",
+    "metric": "rpo",
+    "target_state": "warning",
+    "judgment_rule": "RPO = 1h → 归档日志每 30min 备份",
+    "user_input": "RPO 1 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐归档日志每 30min 备份",
+      "description": "RPO=1h 时方案推荐归档日志每 30min 备份，满足恢复点目标"
+    },
+    "assertions": [
+      {
+        "name": "rpo_1h_arch_30min",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rpo_hours = 1 → skill 应推荐归档日志每 30min 备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RPO 为输入参数，可直接构造；执行 agent 以 rpo_hours=1 调用并验证 skill 推荐归档每 30min"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-10",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "归档日志频率",
+    "metric": "rpo",
+    "target_state": "warning",
+    "judgment_rule": "RPO = 4h → 归档日志每 2h 备份",
+    "user_input": "RPO 4 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 4,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐归档日志每 2h 备份",
+      "description": "RPO=4h 时方案推荐归档日志每 2h 备份"
+    },
+    "assertions": [
+      {
+        "name": "rpo_4h_arch_2h",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rpo_hours = 4 → skill 应推荐归档日志每 2h 备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RPO 为输入参数，可直接构造；执行 agent 以 rpo_hours=4 调用并验证 skill 推荐归档每 2h"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-11",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "归档日志频率",
+    "metric": "rpo",
+    "target_state": "normal",
+    "judgment_rule": "RPO = 24h → 归档日志每 4h 备份",
+    "user_input": "RPO 24 小时，小库，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "推荐归档日志每 4h 备份",
+      "description": "RPO=24h 时方案推荐归档日志每 4h 备份"
+    },
+    "assertions": [
+      {
+        "name": "rpo_24h_arch_4h",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rpo_hours = 24 → skill 应推荐归档日志每 4h 备份"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RPO 为输入参数，可直接构造；执行 agent 以 rpo_hours=24 调用并验证 skill 推荐归档每 4h"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-12",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "保留策略",
+    "metric": "retention_days",
+    "target_state": "normal",
+    "judgment_rule": "retention_days=7 → RECOVERY WINDOW OF 7 DAYS",
+    "user_input": "备份保留 7 天就够了，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "retention_days": 7
+    },
+    "expected_output": {
+      "target_judgment": "推荐 RECOVERY WINDOW OF 7 DAYS",
+      "description": "方案按保留 7 天配置 RECOVERY WINDOW OF 7 DAYS 保留策略"
+    },
+    "assertions": [
+      {
+        "name": "retention_7_days",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "retention_days = 7 → skill 应推荐 RECOVERY WINDOW OF 7 DAYS"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "retention_days 为输入参数，可直接构造；执行 agent 以 retention_days=7 调用并验证 skill 输出对应保留策略"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-13",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "保留策略",
+    "metric": "retention_days",
+    "target_state": "warning",
+    "judgment_rule": "retention_days=30 → RECOVERY WINDOW OF 30 DAYS",
+    "user_input": "备份要保留 30 天，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 4,
+      "data_size_gb": 2000,
+      "retention_days": 30
+    },
+    "expected_output": {
+      "target_judgment": "推荐 RECOVERY WINDOW OF 30 DAYS",
+      "description": "方案按保留 30 天配置 RECOVERY WINDOW OF 30 DAYS 保留策略，并给出对应存储容量估算"
+    },
+    "assertions": [
+      {
+        "name": "retention_30_days",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "retention_days = 30 → skill 应推荐 RECOVERY WINDOW OF 30 DAYS"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "retention_days 为输入参数，可直接构造；执行 agent 以 retention_days=30 调用并验证 skill 输出对应保留策略"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份目标介质",
+    "metric": "backup_dest",
+    "target_state": "normal",
+    "judgment_rule": "backup_dest=disk → 磁盘/FRA 备份方案",
+    "user_input": "备份存到本地磁盘，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "backup_dest": "disk"
+    },
+    "expected_output": {
+      "target_judgment": "输出磁盘/FRA 备份方案",
+      "description": "方案按磁盘介质设计，含 FRA 使用评估与磁盘并行通道配置"
+    },
+    "assertions": [
+      {
+        "name": "dest_disk",
+        "ground_truth_sql": "SELECT name, ROUND(space_limit/1024/1024/1024,2) AS limit_gb FROM v$recovery_file_dest",
+        "logic": "backup_dest=disk → skill 应输出磁盘/FRA 备份方案并评估 FRA 空间"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_dest 为输入参数，可直接构造；执行 agent 以 backup_dest=disk 调用并验证 skill 输出磁盘方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-15",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份目标介质",
+    "metric": "backup_dest",
+    "target_state": "warning",
+    "judgment_rule": "backup_dest=tape → 磁带备份方案（多路复用）",
+    "user_input": "备份要写到磁带库，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 500,
+      "backup_dest": "tape"
+    },
+    "expected_output": {
+      "target_judgment": "输出磁带备份方案（多路复用）",
+      "description": "方案按磁带介质设计，含 SBT_TAPE 并行通道、多路复用与 FILESPERSET 限制"
+    },
+    "assertions": [
+      {
+        "name": "dest_tape",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_dest=tape → skill 应输出磁带备份方案并含多路复用配置"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_dest 为输入参数，可直接构造；执行 agent 以 backup_dest=tape 调用并验证 skill 输出磁带方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-16",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份目标介质",
+    "metric": "backup_dest",
+    "target_state": "warning",
+    "judgment_rule": "backup_dest=disk_tape → 磁盘+磁带两级方案",
+    "user_input": "备份先落磁盘再转磁带，两级存储，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 500,
+      "backup_dest": "disk_tape"
+    },
+    "expected_output": {
+      "target_judgment": "输出磁盘+磁带两级备份方案",
+      "description": "方案按磁盘+磁带两级介质设计，含磁盘快速恢复 + 磁带归档副本策略"
+    },
+    "assertions": [
+      {
+        "name": "dest_disk_tape",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_dest=disk_tape → skill 应输出磁盘+磁带两级备份方案"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_dest 为输入参数，可直接构造；执行 agent 以 backup_dest=disk_tape 调用并验证 skill 输出两级方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-17",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份目标介质",
+    "metric": "backup_dest",
+    "target_state": "normal",
+    "judgment_rule": "backup_dest=cloud → 云存储备份方案",
+    "user_input": "备份要传到云存储，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 500,
+      "backup_dest": "cloud"
+    },
+    "expected_output": {
+      "target_judgment": "输出云存储备份方案",
+      "description": "方案按云存储介质设计，含磁盘备份 + S3/OSS 同步与异地保留策略"
+    },
+    "assertions": [
+      {
+        "name": "dest_cloud",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_dest=cloud → skill 应输出云存储备份方案"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_dest 为输入参数，可直接构造；执行 agent 以 backup_dest=cloud 调用并验证 skill 输出云存储方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-18",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "异地容灾",
+    "metric": "include_offsite",
+    "target_state": "warning",
+    "judgment_rule": "include_offsite=true → 输出异地容灾备份策略",
+    "user_input": "需要做异地容灾，备份要同步到异地，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500,
+      "include_offsite": true
+    },
+    "expected_output": {
+      "target_judgment": "输出异地容灾备份策略",
+      "description": "方案含异地传输方式（rsync/双写/磁带出库）、异地保留策略与防篡改建议"
+    },
+    "assertions": [
+      {
+        "name": "offsite_enabled",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "include_offsite=true → skill 应输出异地容灾备份策略"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "include_offsite 为输入参数，可直接构造；执行 agent 以 include_offsite=true 调用并验证 skill 输出异地方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-19",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "异地容灾",
+    "metric": "include_offsite",
+    "target_state": "normal",
+    "judgment_rule": "include_offsite=false → 不输出异地容灾策略",
+    "user_input": "暂时不做异地容灾，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "include_offsite": false
+    },
+    "expected_output": {
+      "target_judgment": "不输出异地容灾策略",
+      "description": "include_offsite=false 时方案不包含异地容灾章节"
+    },
+    "assertions": [
+      {
+        "name": "offsite_disabled",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "include_offsite=false → skill 输出不应包含异地容灾策略章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "include_offsite 为输入参数，可直接构造；执行 agent 以 include_offsite=false 调用并验证 skill 不输出异地方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-20",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "加密策略",
+    "metric": "include_encryption",
+    "target_state": "warning",
+    "judgment_rule": "include_encryption=true → 输出备份加密策略",
+    "user_input": "备份需要加密，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 500,
+      "include_encryption": true
+    },
+    "expected_output": {
+      "target_judgment": "输出备份加密策略",
+      "description": "方案含加密方式（密码/Wallet 透明加密）、加密算法选型（AES128/192/256）"
+    },
+    "assertions": [
+      {
+        "name": "encryption_enabled",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "include_encryption=true → skill 应输出备份加密策略"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "include_encryption 为输入参数，可直接构造；执行 agent 以 include_encryption=true 调用并验证 skill 输出加密方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-21",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "加密策略",
+    "metric": "include_encryption",
+    "target_state": "normal",
+    "judgment_rule": "include_encryption=false → 不输出加密策略",
+    "user_input": "暂时不需要加密，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "include_encryption": false
+    },
+    "expected_output": {
+      "target_judgment": "不输出加密策略",
+      "description": "include_encryption=false 时方案不包含加密章节"
+    },
+    "assertions": [
+      {
+        "name": "encryption_disabled",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "include_encryption=false → skill 输出不应包含备份加密策略章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "include_encryption 为输入参数，可直接构造；执行 agent 以 include_encryption=false 调用并验证 skill 不输出加密方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-22",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份范围",
+    "metric": "backup_scope",
+    "target_state": "normal",
+    "judgment_rule": "backup_scope=archivelog_only → 仅归档日志备份方案",
+    "user_input": "只备份归档日志，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "archivelog_only",
+      "rpo_hours": 1,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "输出仅归档日志备份方案",
+      "description": "方案仅覆盖归档日志备份，含归档频率、删除策略与归档积压监控"
+    },
+    "assertions": [
+      {
+        "name": "scope_archivelog_only",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_scope=archivelog_only → skill 应输出仅归档日志备份方案"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_scope 为输入参数，可直接构造；执行 agent 以 backup_scope=archivelog_only 调用并验证 skill 输出归档日志方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-23",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份范围",
+    "metric": "backup_scope",
+    "target_state": "warning",
+    "judgment_rule": "backup_scope=full_incr → 全量+增量+归档方案",
+    "user_input": "全量加增量加归档都要，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "输出全量+增量+归档方案",
+      "description": "方案覆盖全量、增量与归档日志三类备份，含各自频率与保留策略"
+    },
+    "assertions": [
+      {
+        "name": "scope_full_incr",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_scope=full_incr → skill 应输出全量+增量+归档方案"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_scope 为输入参数，可直接构造；执行 agent 以 backup_scope=full_incr 调用并验证 skill 输出全量+增量+归档方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-24",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份范围",
+    "metric": "backup_scope",
+    "target_state": "normal",
+    "judgment_rule": "backup_scope=custom → 自定义备份方案",
+    "user_input": "我想自定义备份策略，帮我设计",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "custom",
+      "rpo_hours": 4,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "输出自定义备份方案",
+      "description": "方案按自定义范围设计，允许用户指定各备份类型与频率"
+    },
+    "assertions": [
+      {
+        "name": "scope_custom",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "backup_scope=custom → skill 应输出自定义备份方案"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "backup_scope 为输入参数，可直接构造；执行 agent 以 backup_scope=custom 调用并验证 skill 输出自定义方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-25",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "backup_scope",
+    "target_state": "error",
+    "judgment_rule": "backup_scope 不在 {full, full_incr, archivelog_only, custom} → 拒绝",
+    "user_input": "备份范围填 all，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "all",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 backup_scope 值",
+      "description": "skill 应拒绝非法 backup_scope 值 'all'，提示合法取值"
+    },
+    "assertions": [
+      {
+        "name": "invalid_scope_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "backup_scope 不在 {full, full_incr, archivelog_only, custom} → skill 应拒绝并提示合法取值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以非法 backup_scope 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-26",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "backup_dest",
+    "target_state": "error",
+    "judgment_rule": "backup_dest 不在 {disk, tape, disk_tape, cloud} → 拒绝",
+    "user_input": "备份目标填 nfs，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "backup_dest": "nfs"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 backup_dest 值",
+      "description": "skill 应拒绝非法 backup_dest 值 'nfs'，提示合法取值"
+    },
+    "assertions": [
+      {
+        "name": "invalid_dest_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "backup_dest 不在 {disk, tape, disk_tape, cloud} → skill 应拒绝并提示合法取值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以非法 backup_dest 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-27",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "rpo_hours",
+    "target_state": "error",
+    "judgment_rule": "rpo_hours < 0 → 拒绝",
+    "user_input": "RPO 填 -1 小时，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": -1,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 rpo_hours 值",
+      "description": "skill 应拒绝负数 rpo_hours，提示 RPO 必须 ≥ 0"
+    },
+    "assertions": [
+      {
+        "name": "negative_rpo_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "rpo_hours < 0 → skill 应拒绝并提示 RPO 必须 ≥ 0"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以负数 rpo_hours 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-28",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "retention_days",
+    "target_state": "error",
+    "judgment_rule": "retention_days ≤ 0 → 拒绝",
+    "user_input": "备份保留 0 天，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "retention_days": 0
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 retention_days 值",
+      "description": "skill 应拒绝 retention_days ≤ 0，提示保留天数必须 ≥ 1"
+    },
+    "assertions": [
+      {
+        "name": "invalid_retention_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "retention_days <= 0 → skill 应拒绝并提示保留天数必须 ≥ 1"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以 retention_days=0 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-29",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "daily_change_pct",
+    "target_state": "error",
+    "judgment_rule": "daily_change_pct 不在 [0,100] → 拒绝",
+    "user_input": "日变更比例填 150%，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500,
+      "daily_change_pct": 150
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 daily_change_pct 值",
+      "description": "skill 应拒绝 daily_change_pct 超出 [0,100]，提示合法范围"
+    },
+    "assertions": [
+      {
+        "name": "invalid_change_pct_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "daily_change_pct 不在 [0,100] → skill 应拒绝并提示合法范围"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以 daily_change_pct=150 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-30",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "参数校验",
+    "metric": "required_params",
+    "target_state": "error",
+    "judgment_rule": "instance_host 必填",
+    "user_input": "帮我设计备份策略",
+    "params": {
+      "instance_host": "",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "提示缺少必填参数",
+      "description": "skill 应提示缺少必填参数 instance_host，不生成方案"
+    },
+    "assertions": [
+      {
+        "name": "missing_required_params",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "instance_host 为空 → skill 应拒绝生成方案并提示必填参数"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以空 instance_host 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-31",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接校验",
+    "metric": "connection_failure",
+    "target_state": "error",
+    "judgment_rule": "实例连接失败 → 方案生成失败并标记",
+    "user_input": "实例连不上，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.99:1521/NOTEXIST",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "标记连接失败，不生成方案",
+      "description": "skill 应标记实例连接失败，不生成备份方案，提示检查连接串"
+    },
+    "assertions": [
+      {
+        "name": "connection_failure_flagged",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "实例连接失败 → skill 应标记连接失败并停止方案生成"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过指向不存在实例的连接串构造；执行 agent 负责构造后验证 skill 标记连接失败"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-32",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "归档日志积压",
+    "metric": "unbacked_archivelog",
+    "target_state": "warning",
+    "judgment_rule": "未备份归档日志 > 50 → 归档积压警告",
+    "user_input": "帮我评估下当前归档日志有没有积压，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "archivelog_only",
+      "rpo_hours": 1
+    },
+    "expected_output": {
+      "target_judgment": "标记归档日志积压警告",
+      "description": "环境评估判定未备份归档日志 > 50，方案标记归档积压警告并建议增加临时归档备份"
+    },
+    "assertions": [
+      {
+        "name": "archivelog_backlog_warning",
+        "ground_truth_sql": "SELECT COUNT(*) AS unbacked_cnt FROM v$archived_log WHERE backed_up='NO' AND deleted='NO' AND completion_time > SYSDATE - 3",
+        "logic": "unbacked_cnt > 50 → skill 应标记归档日志积压警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制未备份归档 > 50，读取实际 unbacked_cnt 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-33",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "归档日志积压",
+    "metric": "unbacked_archivelog",
+    "target_state": "normal",
+    "judgment_rule": "未备份归档日志 ≤ 50 → 归档正常",
+    "user_input": "帮我评估下当前归档日志状态，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "archivelog_only",
+      "rpo_hours": 1
+    },
+    "expected_output": {
+      "target_judgment": "归档日志正常",
+      "description": "环境评估判定未备份归档日志 ≤ 50，方案判定归档正常"
+    },
+    "assertions": [
+      {
+        "name": "archivelog_backlog_normal",
+        "ground_truth_sql": "SELECT COUNT(*) AS unbacked_cnt FROM v$archived_log WHERE backed_up='NO' AND deleted='NO' AND completion_time > SYSDATE - 3",
+        "logic": "unbacked_cnt <= 50 → skill 应判定归档日志正常"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制未备份归档 ≤ 50，读取实际 unbacked_cnt 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-34",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "FRA 使用率",
+    "metric": "fra_usage",
+    "target_state": "warning",
+    "judgment_rule": "FRA 使用率 > 80% → 空间不足警告",
+    "user_input": "帮我看看快速恢复区空间够不够，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "backup_dest": "disk"
+    },
+    "expected_output": {
+      "target_judgment": "标记 FRA 空间不足警告",
+      "description": "环境评估判定 FRA 使用率 > 80%，方案标记空间不足警告并建议扩容或缩短保留周期"
+    },
+    "assertions": [
+      {
+        "name": "fra_usage_warning",
+        "ground_truth_sql": "SELECT ROUND((space_used - space_reclaimable) / space_limit * 100, 2) AS pct_used FROM v$recovery_file_dest",
+        "logic": "pct_used > 80 → skill 应标记 FRA 空间不足警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制 FRA 使用率 > 80%，读取实际 pct_used 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-35",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "FRA 使用率",
+    "metric": "fra_usage",
+    "target_state": "normal",
+    "judgment_rule": "FRA 使用率 ≤ 80% → 空间正常",
+    "user_input": "帮我看看快速恢复区空间情况，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80,
+      "backup_dest": "disk"
+    },
+    "expected_output": {
+      "target_judgment": "FRA 空间正常",
+      "description": "环境评估判定 FRA 使用率 ≤ 80%，方案判定空间正常"
+    },
+    "assertions": [
+      {
+        "name": "fra_usage_normal",
+        "ground_truth_sql": "SELECT ROUND((space_used - space_reclaimable) / space_limit * 100, 2) AS pct_used FROM v$recovery_file_dest",
+        "logic": "pct_used <= 80 → skill 应判定 FRA 空间正常"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制 FRA 使用率 ≤ 80%，读取实际 pct_used 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-36",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "备份时效",
+    "metric": "backup_freshness",
+    "target_state": "warning",
+    "judgment_rule": "距最近备份 > 7 天 → 备份时效警告",
+    "user_input": "帮我看看最近备份是什么时候，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "标记备份时效警告",
+      "description": "环境评估判定距最近备份 > 7 天，方案标记备份时效警告并建议尽快备份"
+    },
+    "assertions": [
+      {
+        "name": "backup_stale_warning",
+        "ground_truth_sql": "SELECT ROUND(SYSDATE - MAX(completion_time), 2) AS days_since_backup FROM v$backup_datafile",
+        "logic": "days_since_backup > 7 → skill 应标记备份时效警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制距最近备份 > 7 天，读取实际 days_since_backup 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-37",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "备份时效",
+    "metric": "backup_freshness",
+    "target_state": "normal",
+    "judgment_rule": "距最近备份 ≤ 7 天 → 备份时效正常",
+    "user_input": "帮我看看最近备份情况，顺便设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "备份时效正常",
+      "description": "环境评估判定距最近备份 ≤ 7 天，方案判定备份时效正常"
+    },
+    "assertions": [
+      {
+        "name": "backup_fresh_normal",
+        "ground_truth_sql": "SELECT ROUND(SYSDATE - MAX(completion_time), 2) AS days_since_backup FROM v$backup_datafile",
+        "logic": "days_since_backup <= 7 → skill 应判定备份时效正常"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制距最近备份 ≤ 7 天，读取实际 days_since_backup 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-38",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "存储容量估算",
+    "metric": "storage_capacity",
+    "target_state": "warning",
+    "judgment_rule": "容量估算 = 全量 + 增量 + 归档 + 安全余量(20%-30%)",
+    "user_input": "500GB 库，日变更 5%，保留 14 天，帮我估算下备份存储要多大",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500,
+      "retention_days": 14,
+      "daily_change_pct": 5
+    },
+    "expected_output": {
+      "target_judgment": "输出存储容量估算",
+      "description": "方案按全量+增量+归档+安全余量公式给出日/周/保留周期存储需求估算"
+    },
+    "assertions": [
+      {
+        "name": "capacity_estimate_formula",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM (SELECT bytes FROM v$datafile UNION ALL SELECT bytes FROM v$tempfile)",
+        "logic": "skill 输出的容量估算应基于实际 total_gb、daily_change_pct 与 retention_days 按公式计算，且含 20%-30% 安全余量"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "容量估算依赖实际数据量，读取实际 total_gb 验证估算公式；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-39",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份校验方案",
+    "metric": "validation_plan",
+    "target_state": "normal",
+    "judgment_rule": "输出 CROSSCHECK/VALIDATE/RESTORE VALIDATE 校验计划",
+    "user_input": "帮我设计备份策略，要包含备份校验方案",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "输出备份校验方案",
+      "description": "方案含日常 CROSSCHECK/VALIDATE、周度 RESTORE VALIDATE、季度恢复演练计划"
+    },
+    "assertions": [
+      {
+        "name": "validation_plan_present",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "skill 输出应包含 CROSSCHECK/VALIDATE/RESTORE VALIDATE 校验计划与恢复演练建议"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 输出包含备份校验方案章节"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-40",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "恢复方案",
+    "metric": "recovery_plan",
+    "target_state": "normal",
+    "judgment_rule": "输出全量/增量/PITR 恢复步骤 + 恢复时间预估",
+    "user_input": "帮我设计备份策略，要包含恢复方案",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "输出恢复方案",
+      "description": "方案含全量恢复/增量恢复/PITR 步骤与恢复时间预估"
+    },
+    "assertions": [
+      {
+        "name": "recovery_plan_present",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "skill 输出应包含全量/增量/PITR 恢复步骤与恢复时间预估"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 输出包含恢复方案章节"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-41",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全边界",
+    "metric": "no_execute",
+    "target_state": "error",
+    "judgment_rule": "技能仅输出方案，不执行 BACKUP DATABASE/CONFIGURE/RESTORE/RECOVER",
+    "user_input": "直接帮我执行 BACKUP DATABASE 把库备份了",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 80
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行，仅输出方案",
+      "description": "skill 应拒绝直接执行 RMAN 备份，仅输出方案与建议，由 DBA 按计划实施"
+    },
+    "assertions": [
+      {
+        "name": "no_direct_execution",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "skill 输出应仅为方案与建议，不包含实际执行 BACKUP DATABASE/CONFIGURE/RESTORE/RECOVER 的动作"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 对执行类请求仅输出方案，不执行任何 RMAN 操作"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-42",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "归档日志频率",
+    "metric": "rpo",
+    "target_state": "severe",
+    "judgment_rule": "RPO=0（零数据丢失）→ 归档日志实时传输到备库",
+    "user_input": "业务要求零数据丢失，RPO 为 0，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 0,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐归档日志实时传输到备库",
+      "description": "零数据丢失场景方案推荐每日全量 + 归档日志实时传输到备库，ARCHIVELOG DELETION POLICY TO APPLIED ON STANDBY"
+    },
+    "assertions": [
+      {
+        "name": "rpo_zero_realtime",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "rpo_hours = 0 → skill 应推荐归档日志实时传输到备库"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "RPO 为输入参数，可直接构造；执行 agent 以 rpo_hours=0 调用并验证 skill 推荐归档日志实时传输"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-43",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "合规归档",
+    "metric": "compliance",
+    "target_state": "warning",
+    "judgment_rule": "金融合规 → RECOVERY WINDOW OF 180 DAYS + 异地 6 月 + 加密 AES256",
+    "user_input": "金融行业要求归档日志保留 6 个月，还要异地容灾和加密，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full_incr",
+      "rpo_hours": 1,
+      "data_size_gb": 500,
+      "retention_days": 180,
+      "include_offsite": true,
+      "include_encryption": true
+    },
+    "expected_output": {
+      "target_judgment": "输出合规归档方案（本地 14 天 + 异地 6 月 + 加密）",
+      "description": "方案按金融合规设计，RECOVERY WINDOW OF 180 DAYS、异地保留 6 月、加密 AES256"
+    },
+    "assertions": [
+      {
+        "name": "compliance_retention",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "retention_days=180 且 include_offsite=true 且 include_encryption=true → skill 应输出合规归档方案（异地 6 月 + 加密 AES256）"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "参数可直接构造；执行 agent 以 retention_days=180 + offsite + encryption 调用并验证 skill 输出合规归档方案"
+  },
+  {
+    "skill": "db-oracle-plan-backup",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-backup-44",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "备份性能优化",
+    "metric": "compression",
+    "target_state": "normal",
+    "judgment_rule": "根据负载类型选择压缩级别（OLTP→LOW，混合→MEDIUM，DW→HIGH）",
+    "user_input": "OLTP 业务库，备份时压缩级别怎么选，帮我设计备份策略",
+    "params": {
+      "instance_host": "10.0.0.10:1521/ORCL",
+      "backup_scope": "full",
+      "rpo_hours": 24,
+      "data_size_gb": 500
+    },
+    "expected_output": {
+      "target_judgment": "推荐 LOW 压缩级别",
+      "description": "方案按 OLTP 负载推荐 LOW 压缩级别，并给出并行度与备份窗口建议"
+    },
+    "assertions": [
+      {
+        "name": "compression_recommendation",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "skill 输出应包含压缩级别选型建议（OLTP→LOW/混合→MEDIUM/DW→HIGH）与并行度配置"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 输出包含压缩级别与并行度优化建议"
+  }
+]

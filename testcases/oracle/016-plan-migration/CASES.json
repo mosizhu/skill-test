@@ -1,0 +1,832 @@
+[
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "迁移方式选型",
+    "metric": "data_volume",
+    "target_state": "normal",
+    "judgment_rule": "数据量 < 500GB 且可停机 ≥4h → 推荐 Data Pump (expdp/impdp)",
+    "user_input": "我要把生产库从开发环境迁到测试环境，数据量大概 300GB，可以停机 6 个小时，帮我出个迁移方案",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "offline",
+      "downtime_hours": 6
+    },
+    "expected_output": {
+      "target_judgment": "推荐 Data Pump 离线迁移",
+      "description": "方案主推 Data Pump (expdp/impdp)，含导出/传输/导入/后处理四阶段，并给出备选方案"
+    },
+    "assertions": [
+      {
+        "name": "data_volume_below_500gb",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM dba_segments WHERE owner='APP'",
+        "logic": "total_gb < 500 → skill 应推荐 Data Pump 作为主方案"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造 <500GB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-02",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "迁移方式选型",
+    "metric": "data_volume",
+    "target_state": "warning",
+    "judgment_rule": "500GB ≤ 数据量 ≤ 2TB 且可停机 ≥4h → Data Pump 并行 或 RMAN 可传输表空间",
+    "user_input": "源库数据量大概 1.2TB，可停机 5 小时，跨平台从 AIX 迁到 Linux，怎么迁比较好",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "full",
+      "migration_mode": "offline",
+      "src_platform": "AIX",
+      "dst_platform": "Linux x86_64",
+      "downtime_hours": 5
+    },
+    "expected_output": {
+      "target_judgment": "推荐 Data Pump 并行 或 RMAN 可传输表空间",
+      "description": "方案在 Data Pump 并行与可传输表空间之间对比选型，并提示跨平台字节序兼容"
+    },
+    "assertions": [
+      {
+        "name": "data_volume_500gb_to_2tb",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM dba_segments WHERE owner NOT IN ('SYS','SYSTEM')",
+        "logic": "500 <= total_gb <= 2000 → skill 应推荐 Data Pump 并行或 RMAN 可传输表空间"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 500GB~2TB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-03",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "迁移方式选型",
+    "metric": "data_volume",
+    "target_state": "severe",
+    "judgment_rule": "数据量 > 2TB 且跨平台 → XTTS + 增量备份",
+    "user_input": "3TB 的大库要从 Solaris 迁到 Linux，停机窗口很短，怎么迁",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "full",
+      "migration_mode": "online",
+      "src_platform": "Solaris",
+      "dst_platform": "Linux x86_64",
+      "downtime_hours": 2
+    },
+    "expected_output": {
+      "target_judgment": "推荐 XTTS + 增量备份",
+      "description": "方案主推 XTTS 跨平台可传输表空间 + 增量备份，减少停机窗口"
+    },
+    "assertions": [
+      {
+        "name": "data_volume_over_2tb",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes)/1024/1024/1024,2) AS total_gb FROM dba_segments WHERE owner NOT IN ('SYS','SYSTEM')",
+        "logic": "total_gb > 2000 → skill 应推荐 XTTS + 增量备份"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 >2TB 数据量，读取实际 total_gb 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-04",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "迁移方式选型",
+    "metric": "downtime",
+    "target_state": "normal",
+    "judgment_rule": "零/微停机需求 → OGG 实时同步",
+    "user_input": "业务不能停机，要在线迁移到新库，跨版本 11g 到 19c，怎么实现",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "online",
+      "src_version": "11.2.0.4",
+      "dst_version": "19.3.0.0"
+    },
+    "expected_output": {
+      "target_judgment": "推荐 OGG 实时同步",
+      "description": "方案主推 GoldenGate 在线迁移，含源端/目标端 OGG 配置、全量初始化、割接步骤"
+    },
+    "assertions": [
+      {
+        "name": "online_mode_requires_ogg",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "migration_mode=online 且 log_mode='ARCHIVELOG' → skill 应推荐 OGG 实时同步"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 11g→19c 双实例在线迁移，读取实际 log_mode 验证前置判断；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-05",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "迁移方式选型",
+    "metric": "same_platform_version",
+    "target_state": "normal",
+    "judgment_rule": "同平台同版本全库 → RMAN DUPLICATE",
+    "user_input": "两台 Linux 服务器都是 19c，想把整个库复制一份到新机器，最简单的方式是什么",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "full",
+      "migration_mode": "offline",
+      "src_version": "19.3.0.0",
+      "dst_version": "19.3.0.0",
+      "src_platform": "Linux x86_64",
+      "dst_platform": "Linux x86_64"
+    },
+    "expected_output": {
+      "target_judgment": "推荐 RMAN DUPLICATE",
+      "description": "方案主推 RMAN DUPLICATE 一条命令完成全库复制，作为最简单方案"
+    },
+    "assertions": [
+      {
+        "name": "same_platform_same_version",
+        "ground_truth_sql": "SELECT banner_full FROM v$version",
+        "logic": "src_version=dst_version 且 src_platform=dst_platform → skill 应推荐 RMAN DUPLICATE"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造双实例同版本同平台，读取实际版本验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-06",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "前置检查",
+    "metric": "archivelog_mode",
+    "target_state": "normal",
+    "judgment_rule": "源端 ARCHIVELOG → 在线迁移/OGG 可行",
+    "user_input": "源库开了归档，想用 OGG 做在线迁移，帮我确认前置条件是否满足",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "online"
+    },
+    "expected_output": {
+      "target_judgment": "在线迁移前置条件满足",
+      "description": "前置检查判定源端 ARCHIVELOG，在线迁移/OGG 可行，进入方案设计"
+    },
+    "assertions": [
+      {
+        "name": "archivelog_enabled",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "log_mode='ARCHIVELOG' → skill 应判定在线迁移/OGG 前置条件满足"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过 ALTER DATABASE ARCHIVELOG 构造；执行 agent 负责构造后读取 log_mode 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-07",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "前置检查",
+    "metric": "archivelog_mode",
+    "target_state": "severe",
+    "judgment_rule": "源端 NOARCHIVELOG → 在线迁移/OGG 不可行，需开启归档或改用离线",
+    "user_input": "源库没开归档，但业务想在线迁移不停机，能行吗",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "online"
+    },
+    "expected_output": {
+      "target_judgment": "在线迁移不可行，提示需开启归档或改用离线",
+      "description": "前置检查判定源端 NOARCHIVELOG，在线迁移/OGG 不可行，方案应提示开启归档或改用离线迁移"
+    },
+    "assertions": [
+      {
+        "name": "noarchivelog_blocks_online",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "log_mode='NOARCHIVELOG' → skill 应判定在线迁移/OGG 不可行并提示开启归档或改用离线"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过 ALTER DATABASE NOARCHIVELOG 构造；执行 agent 负责构造后读取 log_mode 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-08",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "前置检查",
+    "metric": "target_storage",
+    "target_state": "warning",
+    "judgment_rule": "目标端存储空间需 ≥ 源端数据量 × 1.3",
+    "user_input": "目标库磁盘空间不太够，帮我评估下能不能迁",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "目标端存储不足警告",
+      "description": "前置检查判定目标端可用空间 < 源端数据量×1.3，方案标记存储不足警告并提示扩容"
+    },
+    "assertions": [
+      {
+        "name": "target_storage_insufficient",
+        "ground_truth_sql": "SELECT ROUND(SUM(user_bytes)/1024/1024/1024,2) AS free_gb FROM dba_data_files",
+        "logic": "free_gb < (源端 total_gb × 1.3) → skill 应标记目标端存储不足警告"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过创建小表空间构造存储不足；执行 agent 负责构造后读取 free_gb 与源端 total_gb 对比验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-09",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "前置检查",
+    "metric": "network_bandwidth",
+    "target_state": "warning",
+    "judgment_rule": "网络带宽建议 ≥ 1Gbps",
+    "user_input": "源端和目标端之间网络只有 100Mbps，迁移会不会很慢",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "网络带宽不足警告",
+      "description": "前置检查判定带宽 < 1Gbps，方案标记带宽不足并提示评估迁移耗时"
+    },
+    "assertions": [
+      {
+        "name": "bandwidth_below_1gbps",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "带宽为外部网络事实，无法从 Oracle 读取；skill 应基于用户提供的带宽值判定 <1Gbps 时标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "网络带宽为环境外部事实，无法通过 Oracle 构造；读取用户输入带宽验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-10",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "一致性校验",
+    "metric": "invalid_objects",
+    "target_state": "normal",
+    "judgment_rule": "目标端无效对象数 = 0 或仅剩与源端一致的无效对象 → 校验通过",
+    "user_input": "迁移完成后帮我校验下目标库有没有无效对象",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "无效对象校验通过",
+      "description": "一致性校验判定目标端无效对象数 = 0，校验通过"
+    },
+    "assertions": [
+      {
+        "name": "no_invalid_objects",
+        "ground_truth_sql": "SELECT COUNT(*) AS invalid_cnt FROM dba_objects WHERE owner='APP' AND status='INVALID'",
+        "logic": "invalid_cnt = 0 → skill 应判定无效对象校验通过"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过创建并失效对象构造；执行 agent 负责构造后读取 invalid_cnt 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-11",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "一致性校验",
+    "metric": "invalid_objects",
+    "target_state": "severe",
+    "judgment_rule": "目标端无效对象数 > 0 → 校验不通过，需编译",
+    "user_input": "目标库导入后有一堆无效对象，正常吗",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "无效对象校验不通过",
+      "description": "一致性校验判定目标端无效对象数 > 0，方案提示运行 utlrp.sql 编译并复检"
+    },
+    "assertions": [
+      {
+        "name": "invalid_objects_present",
+        "ground_truth_sql": "SELECT COUNT(*) AS invalid_cnt FROM dba_objects WHERE owner='APP' AND status='INVALID'",
+        "logic": "invalid_cnt > 0 → skill 应判定无效对象校验不通过并提示编译"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过创建并失效对象构造；执行 agent 负责构造后读取 invalid_cnt 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-12",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "一致性校验",
+    "metric": "object_count",
+    "target_state": "severe",
+    "judgment_rule": "源端 vs 目标端对象计数一致 → 校验通过；不一致 → 差异需排查",
+    "user_input": "迁移后源端和目标端对象数量对不上，帮我查下",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "对象数量差异警告",
+      "description": "一致性校验判定源端与目标端对象计数不一致，方案列出差异项并提示排查"
+    },
+    "assertions": [
+      {
+        "name": "object_count_mismatch",
+        "ground_truth_sql": "SELECT object_type, COUNT(*) AS cnt FROM dba_objects WHERE owner='APP' AND object_type NOT IN ('INDEX PARTITION','TABLE PARTITION','LOB PARTITION') GROUP BY object_type",
+        "logic": "源端与目标端按 object_type 分组计数不一致 → skill 应判定对象数量差异并提示排查"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过在目标端增删对象构造差异；执行 agent 负责构造后双侧对比计数验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-13",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "一致性校验",
+    "metric": "row_count",
+    "target_state": "severe",
+    "judgment_rule": "源端 vs 目标端行数一致 → 校验通过；不一致 → 数据量差异",
+    "user_input": "迁移后两张表行数不一样，帮我确认下数据量",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "数据量差异警告",
+      "description": "一致性校验判定源端与目标端行数不一致，方案提示差异表并建议增量补充或重迁"
+    },
+    "assertions": [
+      {
+        "name": "row_count_mismatch",
+        "ground_truth_sql": "SELECT table_name, num_rows FROM dba_tables WHERE owner='APP'",
+        "logic": "源端与目标端 num_rows 不一致 → skill 应判定数据量差异并提示排查"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过在目标端增删行构造差异；执行 agent 负责构造后双侧对比 num_rows 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-14",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "一致性校验",
+    "metric": "checksum",
+    "target_state": "severe",
+    "judgment_rule": "双侧 hash_sum 一致 → 数据内容一致；不一致 → 数据内容差异",
+    "user_input": "帮我校验下核心表数据内容是否一致",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "数据内容差异警告",
+      "description": "一致性校验判定双侧 hash_sum 不一致，方案提示数据内容差异并建议差异分析"
+    },
+    "assertions": [
+      {
+        "name": "checksum_mismatch",
+        "ground_truth_sql": "SELECT COUNT(*) AS row_count, SUM(ORA_HASH(id||name)) AS hash_sum FROM APP.CORE_TABLE",
+        "logic": "源端与目标端 hash_sum 不一致 → skill 应判定数据内容不一致"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过在目标端修改核心表数据构造差异；执行 agent 负责构造后双侧对比 hash_sum 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-15",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "迁移范围评估",
+    "metric": "large_object",
+    "target_state": "warning",
+    "judgment_rule": "表 > 10GB → 识别为大对象，需特殊处理",
+    "user_input": "源库有几张表特别大，迁移时要注意什么",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "识别大对象并给出分批策略",
+      "description": "迁移范围评估识别 >10GB 大表，方案给出单独分批/并行处理策略"
+    },
+    "assertions": [
+      {
+        "name": "large_table_detected",
+        "ground_truth_sql": "SELECT COUNT(*) AS large_cnt FROM dba_segments WHERE owner='APP' AND segment_type='TABLE' AND bytes > 10*1024*1024*1024",
+        "logic": "large_cnt > 0 → skill 应识别大对象并给出分批策略"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 >10GB 表，读取实际 large_cnt 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-16",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "迁移范围评估",
+    "metric": "large_lob",
+    "target_state": "warning",
+    "judgment_rule": "LOB 段 > 5GB → 识别为大 LOB",
+    "user_input": "库里有几个大 LOB 字段，迁移会不会有问题",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "识别大 LOB 并提示特殊处理",
+      "description": "迁移范围评估识别 >5GB LOB 段，方案提示 LOB/SecureFile 特殊处理"
+    },
+    "assertions": [
+      {
+        "name": "large_lob_detected",
+        "ground_truth_sql": "SELECT COUNT(*) AS lob_cnt FROM dba_lobs l JOIN dba_segments s ON l.segment_name=s.segment_name AND l.owner=s.owner WHERE l.owner='APP' GROUP BY l.owner, l.table_name, l.column_name, l.segment_name HAVING SUM(s.bytes) > 5*1024*1024*1024",
+        "logic": "lob_cnt > 0 → skill 应识别大 LOB 并提示特殊处理"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 >5GB LOB，读取实际 lob_cnt 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-17",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "迁移范围评估",
+    "metric": "tde",
+    "target_state": "warning",
+    "judgment_rule": "存在 TDE 加密表空间 → 迁移需特殊处理",
+    "user_input": "源库有加密表空间，迁移时要注意什么",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "full",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "识别 TDE 加密表空间并提示特殊处理",
+      "description": "迁移范围评估识别 TDE 加密表空间，方案提示密钥/加密算法兼容等特殊处理"
+    },
+    "assertions": [
+      {
+        "name": "tde_tablespace_detected",
+        "ground_truth_sql": "SELECT COUNT(*) AS tde_cnt FROM v$tablespace ts JOIN v$encrypted_tablespaces e ON ts.ts#=e.ts# WHERE e.encryptedts='YES'",
+        "logic": "tde_cnt > 0 → skill 应识别 TDE 加密表空间并提示特殊处理"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "若环境已配置 TDE 则直接验证；否则标注不可构造，读取实际 tde_cnt 验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-18",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "回滚与割接",
+    "metric": "source_data_retention",
+    "target_state": "normal",
+    "judgment_rule": "迁移完成并校验一致前不删除源端数据；目标端验证通过后源端保留 ≥7 天观察期",
+    "user_input": "迁移完成后源库的数据能直接删掉吗",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝删除源数据，提示保留观察期",
+      "description": "方案强调红线：校验一致前不删源数据，目标端验证通过后源端保留 ≥7 天观察期"
+    },
+    "assertions": [
+      {
+        "name": "source_data_not_deleted",
+        "ground_truth_sql": "SELECT COUNT(*) AS src_tables FROM dba_tables WHERE owner='APP'",
+        "logic": "skill 输出应包含源端数据保留 ≥7 天观察期要求，且不输出任何删除源端数据的步骤"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 输出不包含删除源端数据步骤，且包含保留观察期要求"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-19",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "参数校验",
+    "metric": "required_params",
+    "target_state": "error",
+    "judgment_rule": "src_instance/dst_instance 必填",
+    "user_input": "帮我出个迁移方案",
+    "params": {
+      "src_instance": "",
+      "dst_instance": "",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "提示缺少必填参数",
+      "description": "skill 应提示缺少必填参数 src_instance/dst_instance，不生成方案"
+    },
+    "assertions": [
+      {
+        "name": "missing_required_params",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "src_instance 或 dst_instance 为空 → skill 应拒绝生成方案并提示必填参数"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以空 src_instance/dst_instance 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-20",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "migration_scope",
+    "target_state": "error",
+    "judgment_rule": "migration_scope ∈ {full, schema, tablespace, table}",
+    "user_input": "把整个数据库都迁过去，scope 填 all",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "all",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝非法 scope 值",
+      "description": "skill 应拒绝非法 migration_scope 值 'all'，提示合法取值"
+    },
+    "assertions": [
+      {
+        "name": "invalid_scope_rejected",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "migration_scope 不在 {full,schema,tablespace,table} → skill 应拒绝并提示合法取值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以非法 migration_scope 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-21",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "schema_name",
+    "target_state": "error",
+    "judgment_rule": "migration_scope=schema 时 schema_name 必填",
+    "user_input": "按 schema 迁移，但没指定具体 schema",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "提示 schema_name 必填",
+      "description": "skill 应提示 migration_scope=schema 时 schema_name 必填，不生成方案"
+    },
+    "assertions": [
+      {
+        "name": "missing_schema_name",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "migration_scope='schema' 且 schema_name 为空 → skill 应提示 schema_name 必填"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：以 scope=schema 且空 schema_name 调用，验证 skill 正确拒绝"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-22",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接校验",
+    "metric": "connection_failure",
+    "target_state": "error",
+    "judgment_rule": "源端/目标端连接失败 → 方案生成失败并标记",
+    "user_input": "源库连不上，帮我出迁移方案",
+    "params": {
+      "src_instance": "10.0.0.99:1521/NOTEXIST",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "标记连接失败，不生成方案",
+      "description": "skill 应标记源端连接失败，不生成迁移方案，提示检查连接串"
+    },
+    "assertions": [
+      {
+        "name": "connection_failure_flagged",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "源端连接失败 → skill 应标记连接失败并停止方案生成"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过指向不存在实例的连接串构造；执行 agent 负责构造后验证 skill 标记连接失败"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-23",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "迁移范围评估",
+    "metric": "invalid_object_scope",
+    "target_state": "warning",
+    "judgment_rule": "源端存在无效对象 → 迁移前需处理",
+    "user_input": "源库有几个无效对象，迁移前要处理吗",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "提示迁移前处理无效对象",
+      "description": "迁移范围评估识别源端无效对象，方案提示迁移前编译或处理"
+    },
+    "assertions": [
+      {
+        "name": "source_invalid_objects",
+        "ground_truth_sql": "SELECT COUNT(*) AS invalid_cnt FROM dba_objects WHERE owner='APP' AND status='INVALID'",
+        "logic": "invalid_cnt > 0 → skill 应提示迁移前处理源端无效对象"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "可通过创建并失效对象构造；执行 agent 负责构造后读取 invalid_cnt 验证"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-24",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "迁移方式选型",
+    "metric": "cross_version",
+    "target_state": "normal",
+    "judgment_rule": "11g→19c 跨版本 → Data Pump 或 OGG",
+    "user_input": "11g 的库要升级迁到 19c，怎么迁",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "offline",
+      "src_version": "11.2.0.4",
+      "dst_version": "19.3.0.0"
+    },
+    "expected_output": {
+      "target_judgment": "推荐 Data Pump 或 OGG",
+      "description": "方案主推 Data Pump（expdp 兼容性最好）或 OGG，提示跨版本优化器行为变化与废弃特性"
+    },
+    "assertions": [
+      {
+        "name": "cross_version_11g_to_19c",
+        "ground_truth_sql": "SELECT banner_full FROM v$version",
+        "logic": "src_version=11g 且 dst_version=19c → skill 应推荐 Data Pump 或 OGG"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 11g→19c 双实例，读取实际版本验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-25",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "分批策略",
+    "metric": "large_table_batch",
+    "target_state": "warning",
+    "judgment_rule": "含超大表 (>100GB) → 单独导出大表，并行处理中小表",
+    "user_input": "有张表 200GB，迁移时怎么分批",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP",
+      "migration_mode": "offline"
+    },
+    "expected_output": {
+      "target_judgment": "建议超大表单独分批",
+      "description": "分批策略识别 >100GB 超大表，方案建议单独导出大表、并行处理中小表"
+    },
+    "assertions": [
+      {
+        "name": "huge_table_batch",
+        "ground_truth_sql": "SELECT COUNT(*) AS huge_cnt FROM dba_segments WHERE owner='APP' AND segment_type='TABLE' AND bytes > 100*1024*1024*1024",
+        "logic": "huge_cnt > 0 → skill 应建议超大表单独分批处理"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以构造 >100GB 表，读取实际 huge_cnt 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-plan-migration",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-plan-migration-26",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全边界",
+    "metric": "no_execute",
+    "target_state": "error",
+    "judgment_rule": "技能仅输出方案与步骤，不直接执行 expdp/impdp/RMAN/OGG，不修改源端/目标端结构",
+    "user_input": "直接帮我执行 expdp 把数据导出来",
+    "params": {
+      "src_instance": "10.0.0.10:1521/ORCL",
+      "dst_instance": "10.0.0.20:1521/ORCL",
+      "migration_scope": "schema",
+      "schema_name": "APP"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行，仅输出方案步骤",
+      "description": "skill 应拒绝直接执行迁移操作，仅输出方案与步骤，由 DBA 在维护窗口内执行"
+    },
+    "assertions": [
+      {
+        "name": "no_direct_execution",
+        "ground_truth_sql": "SELECT 1 AS dummy FROM dual",
+        "logic": "skill 输出应仅为方案与步骤，不包含实际执行 expdp/impdp/RMAN/OGG 的动作"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "行为断言：验证 skill 对执行类请求仅输出方案，不执行任何迁移操作"
+  }
+]

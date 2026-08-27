@@ -1,0 +1,849 @@
+[
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-01",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "双签审批",
+    "metric": "双签通过",
+    "target_state": "normal",
+    "judgment_rule": "approver_one 与 approver_two 均非空且不同，且 dry_run=false 时允许执行恢复",
+    "user_input": "生产库 ORCL 所有数据文件损坏，数据库无法启动，请执行全量数据库恢复并打开数据库。已由 DBA 张三和李四完成双人审批。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false",
+      "open_resetlogs": "true"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "双签通过后执行 RESTORE DATABASE + RECOVER DATABASE，恢复后数据库 OPEN，数据文件全部 ONLINE，输出恢复执行摘要与恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "数据库已打开",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode = 'READ WRITE' 表示恢复后数据库已正常打开"
+      },
+      {
+        "name": "数据文件全部在线",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$datafile WHERE status != 'ONLINE'",
+        "logic": "cnt = 0 表示所有数据文件均处于 ONLINE 状态"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行全量恢复，读取实际 open_mode 与数据文件状态验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-02",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "双签审批",
+    "metric": "第一审批人缺失",
+    "target_state": "severe",
+    "judgment_rule": "dry_run=false 时 approver_one 为空则拒绝执行，提示完成双人审批",
+    "user_input": "请对 ORCL 库执行全量恢复，恢复后打开数据库。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "第一审批人为空，拒绝执行恢复，提示需完成双人审批（approver_one 与 approver_two 均非空且不同）"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致（未因本次操作产生新化身），证明恢复未被执行"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取当前化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-03",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "双签审批",
+    "metric": "第二审批人缺失",
+    "target_state": "severe",
+    "judgment_rule": "dry_run=false 时 approver_two 为空则拒绝执行，提示完成双人审批",
+    "user_input": "请对 ORCL 库执行全量恢复，恢复后打开数据库。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "第二审批人为空，拒绝执行恢复，提示需完成双人审批"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明恢复未被执行"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取当前化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-04",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "双签审批",
+    "metric": "双签相同",
+    "target_state": "severe",
+    "judgment_rule": "approver_one 与 approver_two 相同则拒绝执行，双签须为不同审批人",
+    "user_input": "对 ORCL 库执行全量恢复，审批人都是张三。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "zhangsan",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "双签审批人相同，拒绝执行恢复，提示双签须为不同审批人"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明恢复未被执行"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取当前化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-05",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "dry_run 试运行",
+    "metric": "试运行模式",
+    "target_state": "normal",
+    "judgment_rule": "dry_run=true（默认）时仅输出恢复计划与校验结果，不实际执行恢复，且无需双签",
+    "user_input": "先帮我预览一下 ORCL 库全量恢复的计划，看看需要哪些备份集和归档日志，先别执行。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "dry_run": "true"
+    },
+    "expected_output": {
+      "target_judgment": "仅输出计划",
+      "description": "输出完整恢复计划（备份集清单/归档日志范围/预估时间/影响范围），不实际执行恢复，提示切换 dry_run=false 并完成双签后执行"
+    },
+    "assertions": [
+      {
+        "name": "数据库未被改变",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode 保持恢复前状态（未被本次试运行改变）"
+      },
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未实际执行恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取 open_mode 与化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-06",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "restore_type 合法性",
+    "target_state": "severe",
+    "judgment_rule": "restore_type 不在合法枚举（full/pitr/tablespace/datafile/controlfile/spfile/blockrecover/flashback_db/flashback_table/preview/validate）内则拒绝",
+    "user_input": "把 ORCL 库恢复到昨天，用增量恢复方式。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "incremental"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "restore_type=incremental 非法，拒绝并提示合法取值列表"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未执行任何恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-07",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "PITR 目标参数必填",
+    "target_state": "severe",
+    "judgment_rule": "restore_type=pitr 时必须指定 until_time/until_scn/until_sequence 之一，否则拒绝",
+    "user_input": "对 ORCL 库做时间点恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "pitr"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "pitr 模式未指定任何 until 目标参数，拒绝并提示需指定 until_time/until_scn/until_sequence 之一"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未执行任何恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-08",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "PITR 目标参数互斥",
+    "target_state": "severe",
+    "judgment_rule": "until_time 与 until_scn 互斥，同时指定则拒绝",
+    "user_input": "把 ORCL 恢复到 2026-08-26 10:00:00 且 SCN 1234567。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "pitr",
+      "until_time": "2026-08-26 10:00:00",
+      "until_scn": "1234567"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "until_time 与 until_scn 同时指定，拒绝并提示二选一"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未执行任何恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-09",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "恢复目标校验",
+    "metric": "目标时间点覆盖范围",
+    "target_state": "severe",
+    "judgment_rule": "until_time 必须晚于最早可用备份时间与最早可用归档日志时间，否则拒绝并提示最早可恢复时间",
+    "user_input": "把 ORCL 恢复到 2026-01-01 00:00:00。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "pitr",
+      "until_time": "2026-01-01 00:00:00"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "目标时间点早于备份/归档覆盖范围，拒绝并提示最早可恢复时间点，建议调整 until_time"
+    },
+    "assertions": [
+      {
+        "name": "目标在备份覆盖范围内",
+        "ground_truth_sql": "SELECT MIN(completion_time) AS earliest_backup_time FROM v$backup_set WHERE backup_type IN ('D','I')",
+        "logic": "until_time >= earliest_backup_time 时目标合法，否则应拒绝（目标超出备份覆盖范围）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制目标时间点超出覆盖范围，读取最早备份时间验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-10",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "前置校验",
+    "metric": "归档模式",
+    "target_state": "severe",
+    "judgment_rule": "PITR 需要数据库处于 ARCHIVELOG 模式，log_mode != 'ARCHIVELOG' 时拒绝并提示仅支持全量恢复",
+    "user_input": "对 ORCL 做时间点恢复到昨天 12:00。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "pitr",
+      "until_time": "2026-08-26 12:00:00"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "若 log_mode 非 ARCHIVELOG 则拒绝 PITR，提示仅支持全量恢复"
+    },
+    "assertions": [
+      {
+        "name": "归档模式校验",
+        "ground_truth_sql": "SELECT log_mode FROM v$database",
+        "logic": "log_mode = 'ARCHIVELOG' 时允许 PITR，否则应拒绝并提示仅支持全量恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制非归档模式，读取 log_mode 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-11",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "闪回数据库",
+    "metric": "闪回开启状态",
+    "target_state": "severe",
+    "judgment_rule": "flashback_db 需要数据库 flashback_on='YES'，否则拒绝并提示需开启闪回日志",
+    "user_input": "用闪回数据库把 ORCL 回退到 1 小时前。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "flashback_db",
+      "flashback_timestamp": "2026-08-27 09:00:00"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "若 flashback_on='NO' 则拒绝闪回数据库，提示需开启闪回日志（FLASHBACK ON）"
+    },
+    "assertions": [
+      {
+        "name": "闪回开启状态校验",
+        "ground_truth_sql": "SELECT flashback_on FROM v$database",
+        "logic": "flashback_on = 'YES' 时允许闪回数据库，否则应拒绝"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制闪回关闭状态，读取 flashback_on 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-12",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "闪回数据库",
+    "metric": "闪回保留窗口",
+    "target_state": "severe",
+    "judgment_rule": "闪回目标时间必须晚于 oldest_flashback_time，否则拒绝并提示最早可闪回时间，建议改用 PITR",
+    "user_input": "把 ORCL 闪回数据库到 3 天前。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "flashback_db",
+      "flashback_timestamp": "2026-08-24 10:00:00"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "若闪回目标早于 oldest_flashback_time 则拒绝，提示最早可闪回时间点，建议改用 PITR 恢复"
+    },
+    "assertions": [
+      {
+        "name": "闪回目标在保留窗口内",
+        "ground_truth_sql": "SELECT TO_CHAR(oldest_flashback_time, 'YYYY-MM-DD HH24:MI:SS') AS oldest_flashback_time FROM v$flashback_database_log",
+        "logic": "flashback_timestamp >= oldest_flashback_time 时目标合法，否则应拒绝（超出闪回保留窗口）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制目标超出保留窗口，读取 oldest_flashback_time 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-13",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "表闪回",
+    "metric": "UNDO 保留范围",
+    "target_state": "severe",
+    "judgment_rule": "表闪回目标时间必须落在 undo_retention 覆盖范围内，超出则拒绝并提示 ORA-01555，建议改用 PITR",
+    "user_input": "把 ORCL 的 SCOTT.EMP 表闪回到 2 天前。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "flashback_table",
+      "table_name": "SCOTT.EMP",
+      "flashback_timestamp": "2026-08-25 10:00:00"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "若闪回目标超出 undo_retention 覆盖范围则拒绝，提示 ORA-01555 快照太旧，建议改用 PITR 恢复"
+    },
+    "assertions": [
+      {
+        "name": "闪回目标在 UNDO 保留范围内",
+        "ground_truth_sql": "SELECT value / 60 AS undo_retention_minutes FROM v$parameter WHERE name = 'undo_retention'",
+        "logic": "闪回目标时间在 undo_retention 覆盖范围内时允许，否则应拒绝（UNDO 数据不足）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制目标超出 UNDO 保留范围，读取 undo_retention 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-14",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "表闪回",
+    "metric": "回收站恢复",
+    "target_state": "normal",
+    "judgment_rule": "误删表可从回收站执行 FLASHBACK TABLE TO BEFORE DROP 恢复",
+    "user_input": "我不小心把 ORCL 的 SCOTT.EMP 表删了，帮我从回收站恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "flashback_table",
+      "table_name": "SCOTT.EMP"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "执行 FLASHBACK TABLE SCOTT.EMP TO BEFORE DROP，表从回收站恢复，输出验证结果"
+    },
+    "assertions": [
+      {
+        "name": "表已恢复",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM dba_tables WHERE owner = 'SCOTT' AND table_name = 'EMP'",
+        "logic": "cnt >= 1 表示表已从回收站恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行表闪回，读取 dba_tables 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-15",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "恢复预览",
+    "metric": "预览不执行",
+    "target_state": "normal",
+    "judgment_rule": "restore_type=preview 仅输出恢复计划（RESTORE PREVIEW），不实际执行恢复",
+    "user_input": "帮我预览 ORCL 全量恢复需要哪些备份集和归档日志，先别执行。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "preview"
+    },
+    "expected_output": {
+      "target_judgment": "仅输出计划",
+      "description": "输出恢复计划（备份集清单/归档日志范围/预估时间），不实际执行恢复"
+    },
+    "assertions": [
+      {
+        "name": "数据库未被改变",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode 保持恢复前状态，证明预览未实际执行恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取 open_mode 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-16",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "备份校验",
+    "metric": "可恢复性校验",
+    "target_state": "normal",
+    "judgment_rule": "restore_type=validate 校验备份可恢复性（RESTORE VALIDATE），不实际恢复",
+    "user_input": "帮我校验一下 ORCL 的备份能不能完整恢复，先别真恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "validate"
+    },
+    "expected_output": {
+      "target_judgment": "仅输出校验结果",
+      "description": "输出备份可恢复性校验结果，不实际执行恢复"
+    },
+    "assertions": [
+      {
+        "name": "数据库未被改变",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "open_mode 保持恢复前状态，证明校验未实际执行恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取 open_mode 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-17",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "备份可用性",
+    "metric": "备份集状态",
+    "target_state": "severe",
+    "judgment_rule": "存在 EXPIRED 备份集时中断恢复，提示备份已过期并检查备份集物理文件",
+    "user_input": "对 ORCL 执行全量恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "中断恢复",
+      "description": "若存在 EXPIRED 备份集则中断恢复，提示备份已过期，检查备份集物理文件是否存在"
+    },
+    "assertions": [
+      {
+        "name": "无过期备份集",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$backup_set WHERE status = 'EXPIRED'",
+        "logic": "cnt = 0 时备份可用，否则应中断恢复并提示备份已过期"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备份过期状态，读取 v$backup_set 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-18",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "归档日志连续性",
+    "metric": "日志缺失",
+    "target_state": "severe",
+    "judgment_rule": "归档日志存在缺失（GAP）时中断恢复，提示缺失的归档日志序列号范围",
+    "user_input": "对 ORCL 做全量恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "中断恢复",
+      "description": "若归档日志存在缺失则中断恢复，提示缺失的归档日志序列号范围，检查是否有额外备份"
+    },
+    "assertions": [
+      {
+        "name": "归档日志连续",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$archived_log WHERE status = 'X' OR deleted = 'YES'",
+        "logic": "cnt = 0 时归档日志连续，否则应中断恢复并提示日志缺失"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制日志缺失状态，读取 v$archived_log 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-19",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "表空间恢复",
+    "metric": "表空间状态",
+    "target_state": "normal",
+    "judgment_rule": "表空间恢复（RESTORE + RECOVER TABLESPACE）后目标表空间应 ONLINE",
+    "user_input": "ORCL 的 USERS 表空间数据文件损坏，帮我恢复这个表空间。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "tablespace",
+      "tablespace_name": "USERS",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "执行表空间恢复，恢复后 USERS 表空间 ONLINE，输出恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "表空间已在线",
+        "ground_truth_sql": "SELECT status FROM dba_tablespaces WHERE tablespace_name = 'USERS'",
+        "logic": "status = 'ONLINE' 表示表空间恢复后已正常在线"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行表空间恢复，读取 dba_tablespaces 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-20",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "tablespace_name 必填",
+    "target_state": "severe",
+    "judgment_rule": "restore_type=tablespace 时必须指定 tablespace_name，否则拒绝",
+    "user_input": "帮我恢复 ORCL 的一个表空间。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "tablespace"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "tablespace 模式未指定 tablespace_name，拒绝并提示需指定表空间名称"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未执行任何恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-21",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "数据文件恢复",
+    "metric": "数据文件状态",
+    "target_state": "normal",
+    "judgment_rule": "数据文件恢复（RESTORE + RECOVER DATAFILE）后目标数据文件应 ONLINE",
+    "user_input": "ORCL 的 5 号数据文件损坏，帮我恢复它。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "datafile",
+      "datafile_id": "5",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "执行数据文件恢复，恢复后 5 号数据文件 ONLINE，输出恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "数据文件已在线",
+        "ground_truth_sql": "SELECT status FROM v$datafile WHERE file# = 5",
+        "logic": "status = 'ONLINE' 表示数据文件恢复后已正常在线"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行数据文件恢复，读取 v$datafile 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-22",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "参数校验",
+    "metric": "datafile_id 必填",
+    "target_state": "severe",
+    "judgment_rule": "restore_type=datafile 时必须指定 datafile_id，否则拒绝",
+    "user_input": "帮我恢复 ORCL 的一个数据文件。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "datafile"
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "datafile 模式未指定 datafile_id，拒绝并提示需指定数据文件编号或路径"
+    },
+    "assertions": [
+      {
+        "name": "未产生新化身",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_incarnation WHERE status = 'CURRENT'",
+        "logic": "cnt 与执行前一致，证明未执行任何恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取化身数量验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-23",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "控制文件恢复",
+    "metric": "控制文件状态",
+    "target_state": "normal",
+    "judgment_rule": "控制文件恢复（RESTORE CONTROLFILE FROM AUTOBACKUP）后数据库可 MOUNT 并 RESETLOGS 打开",
+    "user_input": "ORCL 所有控制文件都丢了，数据库起不来，帮我恢复控制文件。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "controlfile",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false",
+      "open_resetlogs": "true"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "从自动备份恢复控制文件，MOUNT 后 RECOVER，RESETLOGS 打开，输出恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "控制文件存在",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$controlfile",
+        "logic": "cnt >= 1 表示控制文件已恢复存在"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行控制文件恢复，读取 v$controlfile 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-24",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "参数文件恢复",
+    "metric": "SPFILE 状态",
+    "target_state": "normal",
+    "judgment_rule": "SPFILE 恢复（RESTORE SPFILE FROM AUTOBACKUP）后实例可正常启动",
+    "user_input": "ORCL 的 SPFILE 丢了，实例起不来，帮我恢复参数文件。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "spfile",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "从自动备份恢复 SPFILE，重启实例，输出恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "实例已启动",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$parameter WHERE isdefault = 'FALSE'",
+        "logic": "cnt >= 1 表示实例已启动且参数可查询（SPFILE 已生效）"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行 SPFILE 恢复，读取 v$parameter 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-25",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "数据块恢复",
+    "metric": "坏块修复",
+    "target_state": "normal",
+    "judgment_rule": "BLOCKRECOVER 修复指定数据块后，v$database_block_corruption 中对应坏块应消失",
+    "user_input": "ORCL 的 5 号数据文件 1024 号块损坏，帮我修复这个坏块。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "blockrecover",
+      "block_id": "5:1024",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "执行 BLOCKRECOVER DATAFILE 5 BLOCK 1024，坏块修复，输出恢复后验证结果"
+    },
+    "assertions": [
+      {
+        "name": "坏块已修复",
+        "ground_truth_sql": "SELECT COUNT(*) AS cnt FROM v$database_block_corruption WHERE file# = 5 AND block# = 1024",
+        "logic": "cnt = 0 表示对应坏块已修复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行数据块恢复，读取 v$database_block_corruption 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-26",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "恢复空间",
+    "metric": "磁盘空间",
+    "target_state": "severe",
+    "judgment_rule": "恢复所需空间（约数据库大小 + 归档日志大小）超过目标路径可用空间时中断恢复，提示所需与可用空间差值",
+    "user_input": "对 ORCL 执行全量恢复。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "中断恢复",
+      "description": "若恢复所需空间不足则中断，提示所需空间与可用空间差值，建议扩容或更换路径"
+    },
+    "assertions": [
+      {
+        "name": "恢复空间充足",
+        "ground_truth_sql": "SELECT ROUND(SUM(bytes) / 1024 / 1024 / 1024, 2) AS total_gb FROM v$datafile",
+        "logic": "恢复所需空间（total_gb 及归档日志）<= 目标路径可用空间时允许，否则应中断恢复"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制空间不足状态，读取数据文件总大小验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-restore",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-restore-27",
+    "type": "positive",
+    "priority": "P2",
+    "dimension": "变更前后状态",
+    "metric": "SCN 对比",
+    "target_state": "normal",
+    "judgment_rule": "恢复前记录当前 SCN，恢复后对比 current_scn 确认恢复到目标状态",
+    "user_input": "全量恢复 ORCL 完成后，帮我确认恢复到的 SCN 和当前数据库状态。",
+    "params": {
+      "instance_host": "orcl:1521/ORCL",
+      "restore_type": "full",
+      "approver_one": "zhangsan",
+      "approver_two": "lisi",
+      "dry_run": "false"
+    },
+    "expected_output": {
+      "target_judgment": "执行恢复",
+      "description": "输出恢复后 current_scn 与数据库状态，与恢复前记录对比，确认恢复到目标状态"
+    },
+    "assertions": [
+      {
+        "name": "恢复后 SCN 可查询",
+        "ground_truth_sql": "SELECT TO_CHAR(current_scn) AS current_scn FROM v$database",
+        "logic": "current_scn 可查询且为恢复后状态（非空），用于与恢复前记录对比"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法实际执行恢复，读取 current_scn 验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  }
+]

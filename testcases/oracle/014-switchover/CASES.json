@@ -1,0 +1,1429 @@
+[
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-01",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "双签审批门禁",
+    "metric": "审批人完整性",
+    "target_state": "severe",
+    "judgment_rule": "approver_one 与 approver_two 必须均非空，任一缺失即终止",
+    "user_input": "帮我执行主备切换，但我这边只确定了第一个审批人，第二个审批人还没定下来，先跑一下看看能不能切。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "技能终止操作，明确提示需双人审批（approver_one + approver_two 均必填），不进入任何切换执行步骤"
+    },
+    "assertions": [
+      {
+        "name": "双签缺失被拦截",
+        "ground_truth_sql": "SELECT NVL(:approver_two,'') AS approver_two FROM dual",
+        "logic": "skill 输出应包含'双人审批'或'approver_two'缺失提示，且不执行任何 ALTER DATABASE COMMIT TO SWITCHOVER 命令"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以空 approver_two 直接调用，验证双签门禁拦截；无需真实 DG 环境即可验证门禁逻辑"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-02",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "双签审批门禁",
+    "metric": "审批人互斥性",
+    "target_state": "severe",
+    "judgment_rule": "approver_one 与 approver_two 不能为同一人",
+    "user_input": "主备切换的审批人我填了同一个人的名字，这样应该没问题吧？帮我执行切换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_zhang",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "技能终止操作，提示两个审批人不能为同一人，需双人独立审批"
+    },
+    "assertions": [
+      {
+        "name": "同人审批被拦截",
+        "ground_truth_sql": "SELECT CASE WHEN :approver_one = :approver_two THEN 'SAME' ELSE 'DIFF' END AS chk FROM dual",
+        "logic": "当 ground_truth 为 SAME 时，skill 输出应包含'不能为同一人'提示并终止，不执行切换"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以相同 approver_one/approver_two 调用，验证互斥性门禁；无需真实 DG 环境"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-03",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "双签审批门禁",
+    "metric": "审批人完整性",
+    "target_state": "normal",
+    "judgment_rule": "approver_one 与 approver_two 均非空且不同，门禁通过",
+    "user_input": "主备切换的两个审批人已经确认好了，分别是张工和李工，先做一次前置校验看看能不能切。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "门禁通过",
+      "description": "技能通过双签门禁，双签信息记录到校验报告，进入前置校验阶段"
+    },
+    "assertions": [
+      {
+        "name": "双签完整通过",
+        "ground_truth_sql": "SELECT CASE WHEN :approver_one IS NOT NULL AND :approver_two IS NOT NULL AND :approver_one <> :approver_two THEN 'PASS' ELSE 'FAIL' END AS chk FROM dual",
+        "logic": "当 ground_truth 为 PASS 时，skill 输出应包含双签记录（两审批人+审批时间）并进入前置校验，不报审批缺失"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以完整双签 + validate_only=true 调用，验证门禁通过并进入校验流程"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-04",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "主库角色",
+    "metric": "database_role",
+    "target_state": "normal",
+    "judgment_rule": "主库 database_role 必须为 PRIMARY，否则阻断",
+    "user_input": "准备做一次计划内主备切换，先确认一下当前主库的角色是否正常。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定主库角色为 PRIMARY，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "主库角色判定一致",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "skill 对主库角色的判定应与 ground_truth 一致：当 database_role='PRIMARY' 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制主库角色状态，读取实际 database_role 验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-05",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "主库角色",
+    "metric": "database_role",
+    "target_state": "severe",
+    "judgment_rule": "主库 database_role 非 PRIMARY 时阻断切换",
+    "user_input": "我这边主库好像角色不对，帮我检查一下还能不能做切换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定主库角色非 PRIMARY，输出阻塞项并终止切换流程"
+    },
+    "assertions": [
+      {
+        "name": "主库角色异常被阻断",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "当 ground_truth 的 database_role != 'PRIMARY' 时，skill 应输出 FAIL/阻断并终止，不得继续执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制主库角色为异常状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-06",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "备库角色",
+    "metric": "database_role",
+    "target_state": "normal",
+    "judgment_rule": "备库 database_role 必须为 PHYSICAL STANDBY，否则阻断",
+    "user_input": "切换前先确认备库角色是否正常，是物理备库才能切。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定备库角色为 PHYSICAL STANDBY，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "备库角色判定一致",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "skill 对备库角色的判定应与 ground_truth 一致：当 database_role='PHYSICAL STANDBY' 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备库角色状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-07",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "备库角色",
+    "metric": "database_role",
+    "target_state": "severe",
+    "judgment_rule": "备库 database_role 非 PHYSICAL STANDBY 时阻断切换",
+    "user_input": "备库好像不是物理备库了，帮我看看还能不能做切换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定备库角色非 PHYSICAL STANDBY，输出阻塞项并终止切换流程"
+    },
+    "assertions": [
+      {
+        "name": "备库角色异常被阻断",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "当 ground_truth 的 database_role != 'PHYSICAL STANDBY' 时，skill 应输出 FAIL/阻断并终止，不得继续执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备库角色为异常状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-08",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "Switchover 就绪",
+    "metric": "switchover_status",
+    "target_state": "normal",
+    "judgment_rule": "主库 switchover_status 为 TO STANDBY 时满足切换条件",
+    "user_input": "主库的 switchover 状态是 TO STANDBY，确认一下是否满足切换条件。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定主库 switchover_status=TO STANDBY，满足切换条件"
+    },
+    "assertions": [
+      {
+        "name": "TO STANDBY 判定一致",
+        "ground_truth_sql": "SELECT switchover_status FROM v$database",
+        "logic": "skill 判定应与 ground_truth 一致：当 switchover_status='TO STANDBY' 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 switchover_status 状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-09",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "Switchover 就绪",
+    "metric": "switchover_status",
+    "target_state": "warning",
+    "judgment_rule": "主库 switchover_status 为 SESSIONS ACTIVE 时需 WITH SESSION SHUTDOWN 处理",
+    "user_input": "主库现在有活动会话，switchover 状态是 SESSIONS ACTIVE，还能做切换吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "PASS（需会话关闭）",
+      "description": "技能识别 SESSIONS ACTIVE 状态，切换命令使用 WITH SESSION SHUTDOWN 变体，并提示业务会话将被中断"
+    },
+    "assertions": [
+      {
+        "name": "SESSIONS ACTIVE 分支处理",
+        "ground_truth_sql": "SELECT switchover_status FROM v$database",
+        "logic": "当 ground_truth 的 switchover_status='SESSIONS ACTIVE' 时，skill 应使用 WITH SESSION SHUTDOWN 变体并提示会话中断，不得误用无会话关闭的普通切换命令"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 SESSIONS ACTIVE 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-10",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "Switchover 就绪",
+    "metric": "switchover_status",
+    "target_state": "severe",
+    "judgment_rule": "主库 switchover_status 非 TO STANDBY/SESSIONS ACTIVE 时阻断",
+    "user_input": "主库 switchover 状态显示的不是 TO STANDBY，帮我看看能不能切。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定主库不满足切换条件，检查活动备库角色或 DG 配置异常，终止切换"
+    },
+    "assertions": [
+      {
+        "name": "非就绪状态被阻断",
+        "ground_truth_sql": "SELECT switchover_status FROM v$database",
+        "logic": "当 ground_truth 的 switchover_status 不在 ('TO STANDBY','SESSIONS ACTIVE') 时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 switchover_status 异常状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-11",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "归档传输状态",
+    "metric": "archive_dest_status",
+    "target_state": "normal",
+    "judgment_rule": "主库归档传输目标 status 必须为 VALID，否则阻断",
+    "user_input": "切换前确认一下主库到备库的归档传输状态是否正常。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定归档传输目标 status=VALID，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "归档传输 VALID 判定一致",
+        "ground_truth_sql": "SELECT status FROM v$archive_dest_status WHERE dest_id = 2",
+        "logic": "skill 判定应与 ground_truth 一致：当 status='VALID' 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制归档传输状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-12",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "归档传输状态",
+    "metric": "archive_dest_status",
+    "target_state": "severe",
+    "judgment_rule": "主库归档传输目标 status 非 VALID 时阻断",
+    "user_input": "主库到备库的归档传输好像中断了，状态不是 VALID，还能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定归档传输中断（status != VALID），检查网络/监听/日志传输配置，终止切换"
+    },
+    "assertions": [
+      {
+        "name": "归档传输异常被阻断",
+        "ground_truth_sql": "SELECT status FROM v$archive_dest_status WHERE dest_id = 2",
+        "logic": "当 ground_truth 的 status != 'VALID' 时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制归档传输中断状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-13",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "GAP 检查",
+    "metric": "gap_status",
+    "target_state": "normal",
+    "judgment_rule": "主库归档传输 gap_status 必须为 NO GAP，否则阻断",
+    "user_input": "切换前确认主备之间没有归档日志缺口。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定 gap_status=NO GAP，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "NO GAP 判定一致",
+        "ground_truth_sql": "SELECT NVL(gap_status, 'NO GAP') AS gap_status FROM v$archive_dest_status WHERE dest_id = 2",
+        "logic": "skill 判定应与 ground_truth 一致：当 gap_status='NO GAP' 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 GAP 状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-14",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "GAP 检查",
+    "metric": "gap_status",
+    "target_state": "severe",
+    "judgment_rule": "主库归档传输 gap_status 非 NO GAP 时阻断",
+    "user_input": "主备之间好像有归档缺口，gap 状态不是 NO GAP，还能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定存在 GAP，检查归档日志连续性，手动传输缺失归档，终止切换"
+    },
+    "assertions": [
+      {
+        "name": "GAP 存在被阻断",
+        "ground_truth_sql": "SELECT NVL(gap_status, 'NO GAP') AS gap_status FROM v$archive_dest_status WHERE dest_id = 2",
+        "logic": "当 ground_truth 的 gap_status != 'NO GAP' 时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 GAP 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-15",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "同步延迟",
+    "metric": "apply lag",
+    "target_state": "normal",
+    "judgment_rule": "备库 apply lag < max_lag_seconds（默认 30 秒）时通过",
+    "user_input": "备库的 apply lag 大概 5 秒，确认一下同步延迟是否在允许范围内。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "max_lag_seconds": 30,
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定 apply lag 小于 max_lag_seconds，同步延迟校验通过"
+    },
+    "assertions": [
+      {
+        "name": "延迟低于阈值判定一致",
+        "ground_truth_sql": "SELECT TO_NUMBER(REGEXP_SUBSTR(value, '[0-9]+')) AS apply_lag_sec FROM v$dataguard_stats WHERE name = 'apply lag'",
+        "logic": "skill 判定应与 ground_truth 一致：当 apply_lag_sec < 30 时输出 PASS，否则输出告警/终止"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 apply lag 状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-16",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "同步延迟",
+    "metric": "apply lag",
+    "target_state": "warning",
+    "judgment_rule": "备库 apply lag 等于 max_lag_seconds 时处于阈值边界",
+    "user_input": "备库 apply lag 正好 30 秒，和允许的最大延迟一样，这种情况能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "max_lag_seconds": 30,
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "边界告警",
+      "description": "技能对 apply lag == max_lag_seconds 的边界状态给出明确判定（告警或终止），不得含糊处理"
+    },
+    "assertions": [
+      {
+        "name": "延迟等于阈值边界判定",
+        "ground_truth_sql": "SELECT TO_NUMBER(REGEXP_SUBSTR(value, '[0-9]+')) AS apply_lag_sec FROM v$dataguard_stats WHERE name = 'apply lag'",
+        "logic": "当 ground_truth 的 apply_lag_sec = 30 时，skill 应给出与规则一致的边界判定（>= 阈值视为不通过），不得误判为通过"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 apply lag 精确等于阈值，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-17",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "同步延迟",
+    "metric": "apply lag",
+    "target_state": "severe",
+    "judgment_rule": "备库 apply lag >= max_lag_seconds 时终止切换",
+    "user_input": "备库 apply lag 已经 2 分钟了，超过允许的 30 秒，还能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "max_lag_seconds": 30,
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "终止",
+      "description": "技能判定 apply lag 超过阈值，等待备库追平或扩大 max_lag_seconds，确认数据丢失风险后终止切换"
+    },
+    "assertions": [
+      {
+        "name": "延迟超阈值被终止",
+        "ground_truth_sql": "SELECT TO_NUMBER(REGEXP_SUBSTR(value, '[0-9]+')) AS apply_lag_sec FROM v$dataguard_stats WHERE name = 'apply lag'",
+        "logic": "当 ground_truth 的 apply_lag_sec >= 30 时，skill 应输出告警/终止，不得继续执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 apply lag 超阈值，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-18",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "Standby Redo Log 配置",
+    "metric": "SRL 组数",
+    "target_state": "normal",
+    "judgment_rule": "备库 SRL 组数 >= 主库在线 REDO 组数 + 1",
+    "user_input": "切换前确认备库的 Standby Redo Log 组数是否足够。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定 SRL 组数满足 >= 在线 REDO 组数 + 1，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "SRL 组数判定一致",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$standby_log) AS srl_cnt, (SELECT COUNT(*) FROM v$log) AS redo_cnt FROM dual",
+        "logic": "skill 判定应与 ground_truth 一致：当 srl_cnt >= redo_cnt + 1 时输出 PASS，否则输出告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 SRL 组数状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-19",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "Standby Redo Log 配置",
+    "metric": "SRL 组数",
+    "target_state": "warning",
+    "judgment_rule": "备库 SRL 组数 < 主库在线 REDO 组数 + 1 时告警",
+    "user_input": "备库的 Standby Redo Log 组数好像不够，比在线日志组数还少，能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "告警",
+      "description": "技能判定 SRL 组数不足，提示添加 SRL 组，建议配置为在线 REDO 组数 + 1"
+    },
+    "assertions": [
+      {
+        "name": "SRL 组数不足告警",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$standby_log) AS srl_cnt, (SELECT COUNT(*) FROM v$log) AS redo_cnt FROM dual",
+        "logic": "当 ground_truth 的 srl_cnt < redo_cnt + 1 时，skill 应输出告警并提示添加 SRL 组"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 SRL 组数不足状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-20",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "Standby Redo Log 配置",
+    "metric": "SRL 大小",
+    "target_state": "normal",
+    "judgment_rule": "SRL 大小与主库在线 REDO 日志大小一致",
+    "user_input": "切换前确认备库 SRL 的大小和主库在线日志是否一致。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定 SRL 大小与在线 REDO 大小一致，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "SRL 大小判定一致",
+        "ground_truth_sql": "SELECT (SELECT MAX(bytes) FROM v$standby_log) AS srl_bytes, (SELECT MAX(bytes) FROM v$log) AS redo_bytes FROM dual",
+        "logic": "skill 判定应与 ground_truth 一致：当 srl_bytes = redo_bytes 时输出 PASS，否则输出告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 SRL 大小状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-21",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "Standby Redo Log 配置",
+    "metric": "SRL 大小",
+    "target_state": "warning",
+    "judgment_rule": "SRL 大小与主库在线 REDO 日志大小不一致时告警",
+    "user_input": "备库 SRL 的大小和主库在线日志不一样，能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "告警",
+      "description": "技能判定 SRL 大小与在线 REDO 不一致，提示调整 SRL 大小"
+    },
+    "assertions": [
+      {
+        "name": "SRL 大小不一致告警",
+        "ground_truth_sql": "SELECT (SELECT MAX(bytes) FROM v$standby_log) AS srl_bytes, (SELECT MAX(bytes) FROM v$log) AS redo_bytes FROM dual",
+        "logic": "当 ground_truth 的 srl_bytes != redo_bytes 时，skill 应输出告警并提示 SRL 大小不一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 SRL 大小不一致状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-22",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "数据文件一致性",
+    "metric": "数据文件数量",
+    "target_state": "normal",
+    "judgment_rule": "主备数据文件数量一致",
+    "user_input": "切换前确认主备库的数据文件数量是否一致。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定主备数据文件数量一致，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "数据文件数量一致判定",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$datafile) AS primary_cnt, (SELECT COUNT(*) FROM v$datafile) AS standby_cnt FROM dual",
+        "logic": "skill 判定应与 ground_truth 一致：当 primary_cnt = standby_cnt 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制主备数据文件数量不一致状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-23",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "数据文件一致性",
+    "metric": "数据文件数量",
+    "target_state": "severe",
+    "judgment_rule": "主备数据文件数量不一致时阻断",
+    "user_input": "主备库的数据文件数量好像不一样，还能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定数据文件数量不一致，检查备库数据文件是否全部创建，执行 RECOVER 补齐，终止切换"
+    },
+    "assertions": [
+      {
+        "name": "数据文件数量不一致被阻断",
+        "ground_truth_sql": "SELECT (SELECT COUNT(*) FROM v$datafile) AS primary_cnt, (SELECT COUNT(*) FROM v$datafile) AS standby_cnt FROM dual",
+        "logic": "当 ground_truth 的 primary_cnt != standby_cnt 时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制主备数据文件数量不一致状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-24",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "数据文件一致性",
+    "metric": "数据文件状态",
+    "target_state": "normal",
+    "judgment_rule": "主备数据文件状态全部为 ONLINE",
+    "user_input": "切换前确认主备库的数据文件状态是否全部在线。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定数据文件状态全部 ONLINE，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "数据文件全部 ONLINE 判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS offline_cnt FROM v$datafile WHERE status != 'ONLINE'",
+        "logic": "skill 判定应与 ground_truth 一致：当 offline_cnt = 0 时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制数据文件状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-25",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "数据文件一致性",
+    "metric": "数据文件状态",
+    "target_state": "severe",
+    "judgment_rule": "存在非 ONLINE 数据文件时阻断",
+    "user_input": "有数据文件不是 ONLINE 状态，还能做切换吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定存在非 ONLINE 数据文件，输出阻塞项并终止切换"
+    },
+    "assertions": [
+      {
+        "name": "非 ONLINE 数据文件被阻断",
+        "ground_truth_sql": "SELECT COUNT(*) AS offline_cnt FROM v$datafile WHERE status != 'ONLINE'",
+        "logic": "当 ground_truth 的 offline_cnt > 0 时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制数据文件非 ONLINE 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-26",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "闪回恢复区空间",
+    "metric": "FRA used_pct",
+    "target_state": "normal",
+    "judgment_rule": "FRA used_pct < 85% 时通过",
+    "user_input": "切换前确认闪回恢复区的空间使用率是否在安全范围内。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定 FRA used_pct 小于 85%，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "FRA 使用率判定一致",
+        "ground_truth_sql": "SELECT ROUND((space_used - space_reclaimable) / space_limit * 100, 2) AS used_pct FROM v$recovery_file_dest",
+        "logic": "skill 判定应与 ground_truth 一致：当 used_pct < 85 时输出 PASS，否则输出告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 FRA 使用率状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-27",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "闪回恢复区空间",
+    "metric": "FRA used_pct",
+    "target_state": "warning",
+    "judgment_rule": "FRA used_pct 等于 85% 时处于阈值边界",
+    "user_input": "闪回恢复区使用率正好 85%，这种情况能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "边界告警",
+      "description": "技能对 FRA used_pct == 85% 的边界状态给出明确判定（告警），不得含糊处理"
+    },
+    "assertions": [
+      {
+        "name": "FRA 使用率等于阈值边界判定",
+        "ground_truth_sql": "SELECT ROUND((space_used - space_reclaimable) / space_limit * 100, 2) AS used_pct FROM v$recovery_file_dest",
+        "logic": "当 ground_truth 的 used_pct = 85 时，skill 应给出与规则一致的边界判定（>= 85 视为告警），不得误判为通过"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 FRA 使用率精确等于阈值，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-28",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "闪回恢复区空间",
+    "metric": "FRA used_pct",
+    "target_state": "warning",
+    "judgment_rule": "FRA used_pct >= 85% 时告警",
+    "user_input": "闪回恢复区使用率已经 90% 了，还能做切换吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "告警",
+      "description": "技能判定 FRA 空间不足，提示清理过期归档/备份或扩展 FRA 空间"
+    },
+    "assertions": [
+      {
+        "name": "FRA 空间不足告警",
+        "ground_truth_sql": "SELECT ROUND((space_used - space_reclaimable) / space_limit * 100, 2) AS used_pct FROM v$recovery_file_dest",
+        "logic": "当 ground_truth 的 used_pct >= 85 时，skill 应输出告警并提示清理或扩展 FRA 空间"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 FRA 使用率超阈值，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-29",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "监听与网络可达性",
+    "metric": "备库可达性",
+    "target_state": "normal",
+    "judgment_rule": "主库到备库监听/网络可达",
+    "user_input": "切换前确认主库到备库的网络和监听是否可达。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定备库监听/网络可达，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "备库可达性判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS reachable FROM v$archive_dest WHERE destination IS NOT NULL AND status = 'VALID'",
+        "logic": "skill 判定应与 ground_truth 一致：当备库连接测试成功（reachable > 0）时输出 PASS，否则输出 FAIL/阻断"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备库不可达状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-30",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "监听与网络可达性",
+    "metric": "备库可达性",
+    "target_state": "severe",
+    "judgment_rule": "主库到备库监听/网络不可达时阻断",
+    "user_input": "主库连不上备库了，网络好像不通，还能做切换吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "阻断",
+      "description": "技能判定备库不可达，检查网络/监听/防火墙，确认备库服务正常，终止切换"
+    },
+    "assertions": [
+      {
+        "name": "备库不可达被阻断",
+        "ground_truth_sql": "SELECT COUNT(*) AS reachable FROM v$archive_dest WHERE destination IS NOT NULL AND status = 'VALID'",
+        "logic": "当 ground_truth 的 reachable = 0（备库连接失败）时，skill 应输出 FAIL/阻断并终止，不得执行切换"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制备库不可达状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-31",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "主库归档连续性",
+    "metric": "archive_gap",
+    "target_state": "normal",
+    "judgment_rule": "主库 v$archive_gap 无记录",
+    "user_input": "切换前确认主库归档日志没有缺口。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "PASS",
+      "description": "技能判定主库归档无 GAP，该项校验通过"
+    },
+    "assertions": [
+      {
+        "name": "主库归档无 GAP 判定",
+        "ground_truth_sql": "SELECT COUNT(*) AS gap_cnt FROM v$archive_gap",
+        "logic": "skill 判定应与 ground_truth 一致：当 gap_cnt = 0 时输出 PASS，否则输出告警"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制归档 GAP 状态，读取实际值验证判断逻辑；真实 DG 环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-32",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "主库归档连续性",
+    "metric": "archive_gap",
+    "target_state": "warning",
+    "judgment_rule": "主库 v$archive_gap 存在记录时告警",
+    "user_input": "主库归档日志好像有缺口，v$archive_gap 有记录，能切吗？",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "告警",
+      "description": "技能判定主库归档存在 GAP，提示检查归档日志连续性，手动传输缺失归档"
+    },
+    "assertions": [
+      {
+        "name": "主库归档 GAP 告警",
+        "ground_truth_sql": "SELECT COUNT(*) AS gap_cnt FROM v$archive_gap",
+        "logic": "当 ground_truth 的 gap_cnt > 0 时，skill 应输出告警并提示处理归档缺口"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制归档 GAP 状态，读取实际值验证判断逻辑；真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-33",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "执行模式",
+    "metric": "validate_only",
+    "target_state": "normal",
+    "judgment_rule": "validate_only=true 时仅做前置校验，不执行切换",
+    "user_input": "先只做前置校验，不要真的执行切换，确认一下环境是否就绪。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "validate",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": true
+    },
+    "expected_output": {
+      "target_judgment": "仅校验",
+      "description": "技能仅输出前置校验报告，不执行任何 ALTER DATABASE COMMIT TO SWITCHOVER 切换命令"
+    },
+    "assertions": [
+      {
+        "name": "validate_only 不执行切换",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "当 validate_only=true 时，skill 输出校验报告且不改变数据库角色（ground_truth 角色保持不变），不得执行切换命令"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 validate_only=true 调用，验证仅校验不执行；无需真实切换即可验证模式行为"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-34",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "执行模式",
+    "metric": "validate_only",
+    "target_state": "severe",
+    "judgment_rule": "validate_only=false 但双签缺失时不得执行切换",
+    "user_input": "我要真正执行切换，但第二个审批人还没确认，先切吧。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "技能在 validate_only=false 且双签缺失时终止，提示需双人审批，不执行切换"
+    },
+    "assertions": [
+      {
+        "name": "执行模式双签缺失被拦截",
+        "ground_truth_sql": "SELECT NVL(:approver_two,'') AS approver_two FROM dual",
+        "logic": "当 validate_only=false 且 approver_two 为空时，skill 应终止并提示双人审批，不得执行任何切换命令"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 validate_only=false + 空 approver_two 调用，验证执行模式下的双签门禁；无需真实切换"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-35",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "切换模式",
+    "metric": "switchover_type",
+    "target_state": "normal",
+    "judgment_rule": "switchover_type=dg_broker 时通过 DataGuard Broker 执行切换",
+    "user_input": "我们配置了 DataGuard Broker，想通过 Broker 来做这次主备切换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "dg_broker",
+      "primary_unique_name": "orcl_primary",
+      "standby_unique_name": "orcl_standby",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "Broker 切换",
+      "description": "技能通过 DGMGRL SHOW CONFIGURATION / SWITCHOVER TO 执行切换，并验证切换结果"
+    },
+    "assertions": [
+      {
+        "name": "Broker 模式切换",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "当 switchover_type=dg_broker 时，skill 应使用 DGMGRL 命令执行切换，切换后 ground_truth 角色互换为预期角色"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境未配置 DataGuard Broker，无法执行真实 Broker 切换；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-36",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "切换模式",
+    "metric": "switchover_type",
+    "target_state": "severe",
+    "judgment_rule": "非法 switchover_type 值应被拒绝",
+    "user_input": "我想用 failover 模式做切换，帮我执行。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "failover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝",
+      "description": "技能拒绝非法 switchover_type（failover 不在支持范围），提示仅支持 switchover/validate/dg_broker，且不执行 Failover"
+    },
+    "assertions": [
+      {
+        "name": "非法切换模式被拒绝",
+        "ground_truth_sql": "SELECT :switchover_type AS switchover_type FROM dual",
+        "logic": "当 switchover_type 不在 ('switchover','validate','dg_broker') 时，skill 应拒绝并提示不支持，不得执行任何切换命令"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以非法 switchover_type=failover 调用，验证参数校验；无需真实 DG 环境"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-37",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "安全检查",
+    "metric": "skip_checks",
+    "target_state": "severe",
+    "judgment_rule": "skip_checks=true 且未双签确认时拒绝",
+    "user_input": "情况紧急，跳过所有前置校验直接切换，审批人还没确认。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "skip_checks": true,
+      "approver_one": "",
+      "approver_two": "",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "拒绝执行",
+      "description": "技能拒绝 skip_checks=true 且双签缺失的请求，提示跳过校验仅限极端紧急场景且必须双签确认"
+    },
+    "assertions": [
+      {
+        "name": "跳过校验未双签被拒绝",
+        "ground_truth_sql": "SELECT NVL(:approver_one,'') AS a1, NVL(:approver_two,'') AS a2 FROM dual",
+        "logic": "当 skip_checks=true 且双签任一为空时，skill 应拒绝执行并提示需双签确认，不得跳过校验直接切换"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 skip_checks=true + 空双签调用，验证安全门禁；无需真实 DG 环境"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-38",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "切换执行",
+    "metric": "SWITCHOVER 执行链",
+    "target_state": "normal",
+    "judgment_rule": "双签通过 + 前置校验通过 + validate_only=false 时执行完整切换",
+    "user_input": "前置校验都通过了，双签也确认了，现在正式执行主备切换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false,
+      "wait_timeout_seconds": 600
+    },
+    "expected_output": {
+      "target_judgment": "切换成功",
+      "description": "技能按序执行：主库 COMMIT TO SWITCHOVER TO PHYSICAL STANDBY → SHUTDOWN/STARTUP MOUNT → 备库 COMMIT TO SWITCHOVER TO PRIMARY → OPEN → 新备库启动 MRP，输出切换前后状态对比与回退方案"
+    },
+    "assertions": [
+      {
+        "name": "切换后角色互换",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "切换完成后，原主库 ground_truth 角色应为 PHYSICAL STANDBY，原备库应为 PRIMARY，与切换前互换"
+      },
+      {
+        "name": "切换后新备库 MRP 运行",
+        "ground_truth_sql": "SELECT COUNT(*) AS mrp_cnt FROM v$managed_standby WHERE process LIKE 'MRP%' AND status = 'APPLYING_LOG'",
+        "logic": "切换完成后，新备库 ground_truth 的 mrp_cnt > 0，MRP 处于运行状态"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法执行真实切换；需人工确认 + 双签。真实 DG 环境存在该状态时自动覆盖对应分支，执行 agent 负责环境构造"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-39",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "切换执行",
+    "metric": "SWITCHOVER 执行链",
+    "target_state": "severe",
+    "judgment_rule": "切换过程中主库断开或命令失败时需人工介入",
+    "user_input": "切换执行到一半主库断开了，现在两边状态都不对，帮我处理。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "人工介入",
+      "description": "技能识别切换处于中间状态，提示 DBA 手动介入，检查 alert log，输出当前角色状态与恢复建议"
+    },
+    "assertions": [
+      {
+        "name": "切换中断识别",
+        "ground_truth_sql": "SELECT database_role, open_mode, switchover_status FROM v$database",
+        "logic": "当切换中断导致角色/状态处于中间态（如主库已切备但备库未切主）时，skill 应识别异常并提示人工介入，不得误报切换成功"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法构造切换中断状态；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-40",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "切换后验证",
+    "metric": "角色确认",
+    "target_state": "normal",
+    "judgment_rule": "切换后主备角色互换确认",
+    "user_input": "切换完成后，帮我确认一下主备角色是否已经正确互换。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "角色互换确认",
+      "description": "技能确认新主库 database_role=PRIMARY、新备库 database_role=PHYSICAL STANDBY，角色互换正确"
+    },
+    "assertions": [
+      {
+        "name": "新主库角色确认",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "切换后新主库 ground_truth 的 database_role 应为 PRIMARY，skill 判定应与之一致"
+      },
+      {
+        "name": "新备库角色确认",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "切换后新备库 ground_truth 的 database_role 应为 PHYSICAL STANDBY，skill 判定应与之一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法执行真实切换；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-41",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "切换后验证",
+    "metric": "新备库同步状态",
+    "target_state": "normal",
+    "judgment_rule": "切换后新备库 MRP 运行且同步延迟正常",
+    "user_input": "切换完成后，确认一下新备库的同步状态是否正常。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "同步正常",
+      "description": "技能确认新备库 MRP 运行、同步延迟在阈值内、归档传输恢复"
+    },
+    "assertions": [
+      {
+        "name": "新备库 MRP 运行",
+        "ground_truth_sql": "SELECT COUNT(*) AS mrp_cnt FROM v$managed_standby WHERE process LIKE 'MRP%' AND status = 'APPLYING_LOG'",
+        "logic": "切换后新备库 ground_truth 的 mrp_cnt > 0，skill 判定 MRP 运行正常"
+      },
+      {
+        "name": "新备库同步延迟正常",
+        "ground_truth_sql": "SELECT TO_NUMBER(REGEXP_SUBSTR(value, '[0-9]+')) AS apply_lag_sec FROM v$dataguard_stats WHERE name = 'apply lag'",
+        "logic": "切换后新备库 ground_truth 的 apply_lag_sec < max_lag_seconds，skill 判定同步正常"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法执行真实切换；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-42",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "切换后验证",
+    "metric": "新主库读写验证",
+    "target_state": "normal",
+    "judgment_rule": "切换后新主库可正常读写",
+    "user_input": "切换完成后，验证一下新主库能否正常读写。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "读写正常",
+      "description": "技能在新主库执行临时表读写测试（CREATE/INSERT/SELECT/DROP），验证读写能力正常"
+    },
+    "assertions": [
+      {
+        "name": "新主库读写验证",
+        "ground_truth_sql": "SELECT open_mode FROM v$database",
+        "logic": "切换后新主库 ground_truth 的 open_mode 应为 READ WRITE，skill 判定读写验证通过"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法执行真实切换；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-switchover",
+    "skill_version": "v1.0.0",
+    "case_id": "switchover-43",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "回退方案",
+    "metric": "反向 SWITCHOVER",
+    "target_state": "normal",
+    "judgment_rule": "切换后如需回退，执行反向 SWITCHOVER 恢复原角色",
+    "user_input": "切换后发现有问题，需要回退到切换前的状态，帮我执行回退。",
+    "params": {
+      "instance_host": "primary_host:1521/orcl",
+      "standby_host": "standby_host:1521/orcl",
+      "switchover_type": "switchover",
+      "approver_one": "dba_zhang",
+      "approver_two": "dba_li",
+      "validate_only": false
+    },
+    "expected_output": {
+      "target_judgment": "回退成功",
+      "description": "技能输出反向 SWITCHOVER 步骤并执行：新主库切备 → 新备库切主 → 启动 MRP，恢复切换前角色，且同样需双签审批"
+    },
+    "assertions": [
+      {
+        "name": "回退后角色恢复",
+        "ground_truth_sql": "SELECT database_role FROM v$database",
+        "logic": "回退完成后，原主库 ground_truth 角色恢复为 PRIMARY，原备库恢复为 PHYSICAL STANDBY，与切换前一致"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "高危操作，当前环境无法执行真实回退；读取实际值验证判断逻辑，真实环境存在该状态时自动覆盖对应分支，回退同样需双签"
+  }
+]

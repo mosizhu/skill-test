@@ -1,0 +1,944 @@
+[
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-001",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "快照范围与负载概要",
+    "metric": "快照可用性",
+    "target_state": "normal",
+    "judgment_rule": "最近 time_range_hours 内存在至少一对可用 AWR 快照，skill 能输出快照时间范围与负载概要",
+    "user_input": "帮我分析一下这个实例最近24小时的性能，看看有没有明显的瓶颈。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "time_range_hours": 24,
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出快照时间范围、DB Time、Elapsed Time、Redo、逻辑读/物理读、执行/事务数等负载概要"
+    },
+    "assertions": [
+      {
+        "name": "快照范围存在",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(24, 'HOUR') AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "snap_cnt >= 2 时，skill 应输出快照时间范围与负载概要（target_judgment=normal）；否则应回退提示确认快照范围"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 需确保目标实例存在 AWR 快照（可先执行 DBMS_WORKLOAD_REPOSITORY.CREATE_SNAPSHOT 生成快照对），再运行 skill 验证输出"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-002",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "快照范围与负载概要",
+    "metric": "快照可用性",
+    "target_state": "no_data",
+    "judgment_rule": "指定时间范围内无 AWR 快照时，skill 应回退提示用户先确认可用快照范围，而非输出空诊断或报错",
+    "user_input": "这个实例最近好像没有采集到AWR快照，你帮我分析一下性能。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "time_range_hours": 24
+    },
+    "expected_output": {
+      "target_judgment": "no_data",
+      "description": "输出提示：无可用 AWR 快照，建议先通过 SELECT * FROM dba_hist_snapshot 确认可用快照范围"
+    },
+    "assertions": [
+      {
+        "name": "无快照时回退提示",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(24, 'HOUR')",
+        "logic": "snap_cnt = 0 时，skill 应输出回退提示（提示确认快照范围），不得输出伪造的诊断结论"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若存在历史快照则无法强制为空；读取实际 snap_cnt 验证：若 snap_cnt=0 校验回退提示分支，否则该分支由真实无快照环境自动覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-003",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "快照范围与负载概要",
+    "metric": "快照 ID 范围合法性",
+    "target_state": "boundary",
+    "judgment_rule": "snap_id_begin > snap_id_end 或快照 ID 不存在时，skill 应优雅处理（报错或回退），不输出错误诊断",
+    "user_input": "我指定了起始快照ID比结束快照ID还大，你帮我分析一下。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "snap_id_begin": 999999,
+      "snap_id_end": 100
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "对非法快照范围给出明确错误或回退提示，不输出基于空数据的诊断结论"
+    },
+    "assertions": [
+      {
+        "name": "非法快照范围处理",
+        "ground_truth_sql": "SELECT MAX(snap_id) AS max_snap FROM dba_hist_snapshot",
+        "logic": "当 snap_id_begin > snap_id_end 或超出 max_snap 时，skill 应返回错误/回退提示，不得输出正常诊断报告"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "直接传入非法快照 ID 组合即可触发，验证 skill 的边界处理"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-004",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "等待事件",
+    "metric": "TOP N 等待事件",
+    "target_state": "normal",
+    "judgment_rule": "无单一等待事件占比异常偏高时，skill 输出按等待类分类的 TOP N 等待事件及占比",
+    "user_input": "帮我看看最近主要的等待事件有哪些，按等待时间排个序。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 TOP N 等待事件（事件名、等待类、总等待秒、平均等待 ms、占比），并按等待类聚合"
+    },
+    "assertions": [
+      {
+        "name": "等待事件 TOP N 输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS evt_cnt FROM dba_hist_system_event WHERE snap_id = (SELECT MAX(snap_id) FROM dba_hist_snapshot) AND wait_class != 'Idle' AND time_waited_micro_fg > 0",
+        "logic": "evt_cnt > 0 时，skill 应输出 TOP N 等待事件列表且按 total_wait_sec 降序；首条事件 total_wait_sec 应等于 ground_truth 中最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 可生成一定负载（如并发查询）产生等待事件后运行 skill，验证 TOP N 排序与占比计算"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-005",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "等待事件",
+    "metric": "等待事件占比",
+    "target_state": "warning",
+    "judgment_rule": "当某等待事件（如 log file sync）占比显著偏高时，skill 应识别为瓶颈并给出根因解读与排查方向",
+    "user_input": "数据库提交特别慢，感觉是log file sync的问题，你帮我确认一下。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "识别 log file sync 为 TOP 等待事件，解读为提交等待 LGWR 写日志，给出减少提交频率/增大日志组/优化磁盘 I/O 的排查方向"
+    },
+    "assertions": [
+      {
+        "name": "log file sync 根因解读",
+        "ground_truth_sql": "SELECT ROUND(SUM(time_waited_micro_fg)/1000000,2) AS lfs_sec FROM dba_hist_system_event WHERE snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND event_name='log file sync'",
+        "logic": "当 lfs_sec 为 TOP 等待事件且占比显著时，skill 应将其识别为瓶颈并输出 Commit 类根因解读；若 lfs_sec=0 则该分支由真实高提交负载环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制 log file sync 占优；读取实际等待事件分布，若 log file sync 为 TOP 则验证根因解读分支，否则标注该分支待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-006",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "等待事件",
+    "metric": "等待事件增量",
+    "target_state": "normal",
+    "judgment_rule": "基于快照差值计算等待事件增量，输出跨快照的等待事件变化 TOP N",
+    "user_input": "对比一下这两个快照之间等待事件的变化，看看哪些等待变多了。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "snap_id_begin": "<begin>",
+      "snap_id_end": "<end>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出基于快照差值的等待事件 TOP N（delta_wait_sec、delta_waits、avg_wait_ms）"
+    },
+    "assertions": [
+      {
+        "name": "等待事件增量计算",
+        "ground_truth_sql": "SELECT e.event_name, ROUND((e.time_waited_micro_fg-b.time_waited_micro_fg)/1000000,2) AS delta_sec FROM dba_hist_system_event e JOIN dba_hist_system_event b ON e.event_name=b.event_name AND b.snap_id=&snap_id_begin WHERE e.snap_id=&snap_id_end AND e.wait_class!='Idle' AND (e.time_waited_micro_fg-b.time_waited_micro_fg)>0 ORDER BY delta_sec DESC",
+        "logic": "skill 输出的 delta_wait_sec 应等于 ground_truth 中对应事件的 (e.value-b.value)/1000000，且按 delta_sec 降序排列"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 指定一对真实存在的快照 ID，验证跨快照差值计算正确性"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-007",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "等待事件",
+    "metric": "RAC 全局等待事件",
+    "target_state": "non_rac",
+    "judgment_rule": "单实例环境下 RAC 相关查询（gv$system_event gc% 事件）返回空属正常，skill 应标记'非 RAC 环境'而非报错",
+    "user_input": "帮我看看RAC的全局等待事件，特别是gc相关的。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "non_rac",
+      "description": "单实例环境输出'非 RAC 环境'标记，gc% 等待事件为空属正常，不报错"
+    },
+    "assertions": [
+      {
+        "name": "非 RAC 环境标记",
+        "ground_truth_sql": "SELECT COUNT(*) AS inst_cnt FROM gv$instance",
+        "logic": "inst_cnt = 1 时，skill 应标记'非 RAC 环境'且 gc% 等待事件输出为空属正常；inst_cnt > 1 时 skill 应输出 RAC 全局等待事件"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "单实例环境直接验证'非 RAC 环境'分支；RAC 环境由真实多实例环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-008",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "时间模型",
+    "metric": "DB Time 分布",
+    "target_state": "normal",
+    "judgment_rule": "DB Time 分布正常（无单一维度异常偏高）时，skill 输出各维度占比",
+    "user_input": "帮我看看数据库的时间都花在哪些环节上了。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 DB Time 分解（sql execute、parse、PL/SQL、RMAN、connection management 等）及各维度占比"
+    },
+    "assertions": [
+      {
+        "name": "DB Time 分解输出",
+        "ground_truth_sql": "SELECT e.stat_name, ROUND((e.value-b.value)/1000000,2) AS delta_sec FROM dba_hist_sys_time_model e JOIN dba_hist_sys_time_model b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('DB time','DB CPU','sql execute elapsed time','parse time elapsed')",
+        "logic": "skill 输出的各维度 delta_sec 应等于 ground_truth 对应值，且各维度占比之和约等于 100%"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 指定一对真实快照，验证 DB Time 分解与占比计算"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-009",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "时间模型",
+    "metric": "DB CPU 占比",
+    "target_state": "warning",
+    "judgment_rule": "DB CPU 占 DB Time 比例显著偏高时，skill 应识别为 CPU 瓶颈并给出优化方向",
+    "user_input": "数据库CPU占用特别高，帮我看看是不是CPU瓶颈。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "识别 DB CPU 为 DB Time 主要消耗，解读为 CPU 瓶颈，建议优化热点 SQL 或扩容"
+    },
+    "assertions": [
+      {
+        "name": "CPU 瓶颈识别",
+        "ground_truth_sql": "SELECT ROUND(SUM(CASE WHEN e.stat_name='DB CPU' THEN e.value-b.value ELSE 0 END)/1000000,2) AS cpu_sec, ROUND(SUM(CASE WHEN e.stat_name='DB time' THEN e.value-b.value ELSE 0 END)/1000000,2) AS db_time_sec FROM dba_hist_sys_time_model e JOIN dba_hist_sys_time_model b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('DB CPU','DB time')",
+        "logic": "当 cpu_sec/db_time_sec 显著偏高（如 >70%）时，skill 应识别为 CPU 瓶颈；否则该分支由真实高 CPU 负载环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制 DB CPU 占优；读取实际 DB CPU/DB Time 比值，若显著偏高则验证 CPU 瓶颈分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-010",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "热点 SQL",
+    "metric": "按 Elapsed Time 排序",
+    "target_state": "normal",
+    "judgment_rule": "存在热点 SQL 时，skill 按总耗时降序输出 TOP N 热点 SQL",
+    "user_input": "帮我找出最耗时的SQL，看看是哪些语句拖慢了数据库。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出按 elapsed_time 降序的 TOP N 热点 SQL（sql_id、sql_text、总耗时、CPU、平均耗时、执行次数、逻辑读、物理读）"
+    },
+    "assertions": [
+      {
+        "name": "按耗时排序热点 SQL",
+        "ground_truth_sql": "SELECT s.sql_id, ROUND(SUM(s.elapsed_time_delta)/1000000,2) AS total_elapsed_sec FROM dba_hist_sqlstat s WHERE s.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) GROUP BY s.sql_id ORDER BY total_elapsed_sec DESC",
+        "logic": "skill 输出的热点 SQL 应按 total_elapsed_sec 降序，且首条 sql_id 的 total_elapsed_sec 等于 ground_truth 最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 可运行高耗时 SQL 生成热点后运行 skill，验证按耗时排序正确性"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-011",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "热点 SQL",
+    "metric": "按 CPU 排序",
+    "target_state": "normal",
+    "judgment_rule": "存在热点 SQL 时，skill 按 CPU 时间降序输出 TOP N 热点 SQL",
+    "user_input": "帮我看看哪些SQL消耗的CPU最多。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出按 cpu_time 降序的 TOP N 热点 SQL"
+    },
+    "assertions": [
+      {
+        "name": "按 CPU 排序热点 SQL",
+        "ground_truth_sql": "SELECT s.sql_id, ROUND(SUM(s.cpu_time_delta)/1000000,2) AS total_cpu_sec FROM dba_hist_sqlstat s WHERE s.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) GROUP BY s.sql_id ORDER BY total_cpu_sec DESC",
+        "logic": "skill 输出的热点 SQL 应按 total_cpu_sec 降序，首条 sql_id 的 total_cpu_sec 等于 ground_truth 最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 运行 CPU 密集 SQL 后运行 skill，验证按 CPU 排序正确性"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-012",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "热点 SQL",
+    "metric": "按 Buffer Gets 排序",
+    "target_state": "normal",
+    "judgment_rule": "存在热点 SQL 时，skill 按逻辑读（Buffer Gets）降序输出 TOP N 热点 SQL",
+    "user_input": "帮我找出逻辑读最多的SQL，怀疑有全表扫描。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出按 buffer_gets 降序的 TOP N 热点 SQL（含平均逻辑读）"
+    },
+    "assertions": [
+      {
+        "name": "按逻辑读排序热点 SQL",
+        "ground_truth_sql": "SELECT s.sql_id, SUM(s.buffer_gets_delta) AS buffer_gets FROM dba_hist_sqlstat s WHERE s.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) GROUP BY s.sql_id ORDER BY buffer_gets DESC",
+        "logic": "skill 输出的热点 SQL 应按 buffer_gets 降序，首条 sql_id 的 buffer_gets 等于 ground_truth 最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 运行高逻辑读 SQL（如无索引全表扫描）后运行 skill，验证按 Buffer Gets 排序正确性"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-013",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "热点 SQL",
+    "metric": "按 Disk Reads 排序",
+    "target_state": "normal",
+    "judgment_rule": "存在物理读时，skill 按 Disk Reads 降序输出 TOP N 热点 SQL",
+    "user_input": "帮我找出物理读最多的SQL，看看是不是I/O瓶颈。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出按 disk_reads 降序的 TOP N 热点 SQL（仅含 disk_reads_delta>0 的 SQL）"
+    },
+    "assertions": [
+      {
+        "name": "按物理读排序热点 SQL",
+        "ground_truth_sql": "SELECT s.sql_id, SUM(s.disk_reads_delta) AS disk_reads FROM dba_hist_sqlstat s WHERE s.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND s.disk_reads_delta>0 GROUP BY s.sql_id ORDER BY disk_reads DESC",
+        "logic": "skill 输出的热点 SQL 应按 disk_reads 降序，且仅包含 disk_reads_delta>0 的 SQL；首条 disk_reads 等于 ground_truth 最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 运行高物理读 SQL 后运行 skill，验证按 Disk Reads 排序与过滤逻辑"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-014",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "热点 SQL",
+    "metric": "按 Executions 排序",
+    "target_state": "normal",
+    "judgment_rule": "存在热点 SQL 时，skill 按执行次数降序输出 TOP N 热点 SQL",
+    "user_input": "帮我找出执行次数最多的SQL，看看有没有频繁执行的小查询。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 10
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出按 executions 降序的 TOP N 热点 SQL（含平均耗时）"
+    },
+    "assertions": [
+      {
+        "name": "按执行次数排序热点 SQL",
+        "ground_truth_sql": "SELECT s.sql_id, SUM(s.executions_delta) AS executions FROM dba_hist_sqlstat s WHERE s.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) GROUP BY s.sql_id ORDER BY executions DESC",
+        "logic": "skill 输出的热点 SQL 应按 executions 降序，首条 sql_id 的 executions 等于 ground_truth 最大值"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 循环执行某 SQL 后运行 skill，验证按 Executions 排序正确性"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-015",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "热点 SQL",
+    "metric": "热点 SQL 数据可用性",
+    "target_state": "no_data",
+    "judgment_rule": "指定快照范围内无热点 SQL 数据时，skill 应输出空结果或明确提示，不输出伪造 SQL",
+    "user_input": "这个时间段好像没什么SQL活动，帮我看看热点SQL。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "snap_id_begin": "<begin>",
+      "snap_id_end": "<end>"
+    },
+    "expected_output": {
+      "target_judgment": "no_data",
+      "description": "无热点 SQL 数据时输出空列表或提示，不输出伪造的 SQL 文本"
+    },
+    "assertions": [
+      {
+        "name": "无热点 SQL 处理",
+        "ground_truth_sql": "SELECT COUNT(*) AS sql_cnt FROM dba_hist_sqlstat WHERE snap_id=&snap_id_end",
+        "logic": "sql_cnt = 0 时，skill 应输出空结果或明确提示，不得输出伪造的 SQL 文本或诊断结论"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若存在 SQL 活动则无法强制为空；读取实际 sql_cnt 验证，若为 0 校验空结果分支，否则该分支由真实空闲环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-016",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "关联分析",
+    "metric": "等待事件与热点 SQL 关联",
+    "target_state": "normal",
+    "judgment_rule": "存在等待事件与 SQL 活动时，skill 输出 TOP 等待事件对应的关联 SQL 及采样占比",
+    "user_input": "这个等待事件主要是哪些SQL引起的？帮我关联分析一下。",
+    "params": {
+      "instance_host": "<oracle_conn>",
+      "top_n": 5
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 TOP 等待事件对应的关联 SQL（sql_id、采样数、占比），或按等待事件反查关联 SQL"
+    },
+    "assertions": [
+      {
+        "name": "等待事件-SQL 关联输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS ash_cnt FROM dba_hist_active_sess_history WHERE snap_id BETWEEN &snap_id_begin AND &snap_id_end AND sql_id IS NOT NULL",
+        "logic": "ash_cnt > 0 时，skill 应输出等待事件与 SQL 的关联分析；ash_cnt = 0 时输出空结果属正常"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 生成 ASH 采样负载后运行 skill，验证关联分析输出"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-017",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "实例效率命中率",
+    "metric": "Buffer Cache Hit Ratio",
+    "target_state": "normal",
+    "judgment_rule": "Buffer Cache Hit Ratio > 95% 判定为正常",
+    "user_input": "帮我看看缓冲区的命中率怎么样，是不是正常。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 Buffer Cache Hit Ratio 实际值，>95% 判定为正常，不提示优化"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Cache Hit Ratio 判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='physical reads' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name IN ('db block gets','consistent gets') THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS buffer_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('physical reads','db block gets','consistent gets')",
+        "logic": "buffer_hit_pct > 95 时 skill 应判定 normal；buffer_hit_pct < 95 时 skill 应判定 warning；=95 时按边界处理"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制命中率到指定状态；读取实际 buffer_hit_pct 验证判断逻辑，真实环境存在对应状态时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-018",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Buffer Cache Hit Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Buffer Cache Hit Ratio < 95% 判定为异常，提示增大 SGA / 检查全表扫描",
+    "user_input": "数据库物理读很多，缓冲区命中率是不是太低了？",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "Buffer Cache Hit Ratio < 95% 时判定为异常，给出增大 SGA / 检查全表扫描的排查方向"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Cache Hit Ratio 低值判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='physical reads' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name IN ('db block gets','consistent gets') THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS buffer_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('physical reads','db block gets','consistent gets')",
+        "logic": "buffer_hit_pct < 95 时 skill 应判定 warning 并提示增大 SGA/检查全表扫描；buffer_hit_pct >= 95 时该分支由真实低命中率环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制低命中率；读取实际 buffer_hit_pct 验证，若 <95 校验 warning 分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-019",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Buffer Cache Hit Ratio",
+    "target_state": "boundary",
+    "judgment_rule": "Buffer Cache Hit Ratio 恰为 95% 时，skill 应给出明确判定（正常或异常），不出现判断歧义",
+    "user_input": "缓冲区命中率刚好在95%左右，帮我判断一下算不算正常。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "Buffer Cache Hit Ratio = 95% 时给出明确判定，不出现歧义"
+    },
+    "assertions": [
+      {
+        "name": "Buffer Cache Hit Ratio 边界判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='physical reads' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name IN ('db block gets','consistent gets') THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS buffer_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('physical reads','db block gets','consistent gets')",
+        "logic": "buffer_hit_pct = 95 时 skill 应给出明确判定（normal 或 warning 二选一），不得同时输出两种判断或含糊其辞"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造命中率=95%；读取实际 buffer_hit_pct，若恰为 95 校验边界分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-020",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "实例效率命中率",
+    "metric": "Library Cache Hit Ratio",
+    "target_state": "normal",
+    "judgment_rule": "Library Cache Hit Ratio > 95% 判定为正常",
+    "user_input": "帮我看看库缓存命中率，是不是有硬解析问题。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 Library Cache Hit Ratio 实际值，>95% 判定为正常"
+    },
+    "assertions": [
+      {
+        "name": "Library Cache Hit Ratio 判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS lib_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "lib_hit_pct > 95 时 skill 应判定 normal；lib_hit_pct < 95 时 skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制命中率到指定状态；读取实际 lib_hit_pct 验证判断逻辑，真实环境存在对应状态时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-021",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Library Cache Hit Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Library Cache Hit Ratio < 95% 判定为异常，提示检查硬解析、未使用绑定变量",
+    "user_input": "数据库硬解析很多，库缓存命中率是不是太低了？",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "Library Cache Hit Ratio < 95% 时判定为异常，提示检查硬解析、未使用绑定变量"
+    },
+    "assertions": [
+      {
+        "name": "Library Cache Hit Ratio 低值判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS lib_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "lib_hit_pct < 95 时 skill 应判定 warning 并提示检查硬解析/绑定变量；lib_hit_pct >= 95 时该分支由真实低命中率环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制低命中率；读取实际 lib_hit_pct 验证，若 <95 校验 warning 分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-022",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Library Cache Hit Ratio",
+    "target_state": "boundary",
+    "judgment_rule": "Library Cache Hit Ratio 恰为 95% 时，skill 应给出明确判定，不出现判断歧义",
+    "user_input": "库缓存命中率刚好在95%，帮我判断一下。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "Library Cache Hit Ratio = 95% 时给出明确判定，不出现歧义"
+    },
+    "assertions": [
+      {
+        "name": "Library Cache Hit Ratio 边界判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS lib_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "lib_hit_pct = 95 时 skill 应给出明确判定（normal 或 warning 二选一），不得同时输出两种判断或含糊其辞"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造命中率=95%；读取实际 lib_hit_pct，若恰为 95 校验边界分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-023",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Cursor Cache Hit Ratio",
+    "target_state": "normal",
+    "judgment_rule": "Cursor Cache Hit Ratio > 95% 判定为正常",
+    "user_input": "帮我看看游标缓存命中率正不正常。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 Cursor Cache Hit Ratio 实际值，>95% 判定为正常"
+    },
+    "assertions": [
+      {
+        "name": "Cursor Cache Hit Ratio 判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='session cursor cache count' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='opened cursors cumulative' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS cur_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('session cursor cache count','opened cursors cumulative')",
+        "logic": "cur_hit_pct > 95 时 skill 应判定 normal；cur_hit_pct < 95 时 skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制命中率到指定状态；读取实际 cur_hit_pct 验证判断逻辑，真实环境存在对应状态时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-024",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Cursor Cache Hit Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Cursor Cache Hit Ratio < 95% 判定为异常，提示检查游标共享、SESSION_CACHED_CURSORS",
+    "user_input": "游标缓存命中率好像不高，帮我看看。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "Cursor Cache Hit Ratio < 95% 时判定为异常，提示检查游标共享、SESSION_CACHED_CURSORS"
+    },
+    "assertions": [
+      {
+        "name": "Cursor Cache Hit Ratio 低值判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='session cursor cache count' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='opened cursors cumulative' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS cur_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('session cursor cache count','opened cursors cumulative')",
+        "logic": "cur_hit_pct < 95 时 skill 应判定 warning 并提示检查游标共享/SESSION_CACHED_CURSORS；cur_hit_pct >= 95 时该分支由真实低命中率环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制低命中率；读取实际 cur_hit_pct 验证，若 <95 校验 warning 分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-025",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Cursor Cache Hit Ratio",
+    "target_state": "boundary",
+    "judgment_rule": "Cursor Cache Hit Ratio 恰为 95% 时，skill 应给出明确判定，不出现判断歧义",
+    "user_input": "游标缓存命中率刚好95%，帮我判断一下。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "Cursor Cache Hit Ratio = 95% 时给出明确判定，不出现歧义"
+    },
+    "assertions": [
+      {
+        "name": "Cursor Cache Hit Ratio 边界判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='session cursor cache count' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='opened cursors cumulative' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS cur_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('session cursor cache count','opened cursors cumulative')",
+        "logic": "cur_hit_pct = 95 时 skill 应给出明确判定（normal 或 warning 二选一），不得同时输出两种判断或含糊其辞"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造命中率=95%；读取实际 cur_hit_pct，若恰为 95 校验边界分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-026",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Row Cache Hit Ratio",
+    "target_state": "normal",
+    "judgment_rule": "Row Cache Hit Ratio > 90% 判定为正常",
+    "user_input": "帮我看看数据字典缓存（行缓存）命中率正不正常。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 Row Cache Hit Ratio 实际值，>90% 判定为正常"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache Hit Ratio 判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='row cache misses' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='row cache get' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS row_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('row cache misses','row cache get')",
+        "logic": "row_hit_pct > 90 时 skill 应判定 normal；row_hit_pct < 90 时 skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制命中率到指定状态；读取实际 row_hit_pct 验证判断逻辑，真实环境存在对应状态时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-027",
+    "type": "negative",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Row Cache Hit Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Row Cache Hit Ratio < 90% 判定为异常，提示检查 DDL 频率、共享池大小",
+    "user_input": "数据字典缓存命中率偏低，帮我看看原因。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "Row Cache Hit Ratio < 90% 时判定为异常，提示检查 DDL 频率、共享池大小"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache Hit Ratio 低值判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='row cache misses' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='row cache get' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS row_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('row cache misses','row cache get')",
+        "logic": "row_hit_pct < 90 时 skill 应判定 warning 并提示检查 DDL 频率/共享池大小；row_hit_pct >= 90 时该分支由真实低命中率环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制低命中率；读取实际 row_hit_pct 验证，若 <90 校验 warning 分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-028",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Row Cache Hit Ratio",
+    "target_state": "boundary",
+    "judgment_rule": "Row Cache Hit Ratio 恰为 90% 时，skill 应给出明确判定，不出现判断歧义",
+    "user_input": "行缓存命中率刚好90%，帮我判断一下。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "Row Cache Hit Ratio = 90% 时给出明确判定，不出现歧义"
+    },
+    "assertions": [
+      {
+        "name": "Row Cache Hit Ratio 边界判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='row cache misses' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='row cache get' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS row_hit_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('row cache misses','row cache get')",
+        "logic": "row_hit_pct = 90 时 skill 应给出明确判定（normal 或 warning 二选一），不得同时输出两种判断或含糊其辞"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造命中率=90%；读取实际 row_hit_pct，若恰为 90 校验边界分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-029",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Soft Parse Ratio",
+    "target_state": "normal",
+    "judgment_rule": "Soft Parse Ratio > 95% 判定为正常",
+    "user_input": "帮我看看软解析率正不正常，是不是有绑定变量问题。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "normal",
+      "description": "输出 Soft Parse Ratio 实际值，>95% 判定为正常"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse Ratio 判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS soft_parse_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "soft_parse_pct > 95 时 skill 应判定 normal；soft_parse_pct < 95 时 skill 应判定 warning"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制软解析率到指定状态；读取实际 soft_parse_pct 验证判断逻辑，真实环境存在对应状态时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-030",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "实例效率命中率",
+    "metric": "Soft Parse Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Soft Parse Ratio < 95% 判定为异常，提示检查绑定变量使用、CURSOR_SHARING",
+    "user_input": "软解析率偏低，是不是没用好绑定变量？",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "warning",
+      "description": "Soft Parse Ratio < 95% 时判定为异常，提示检查绑定变量使用、CURSOR_SHARING"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse Ratio 低值判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS soft_parse_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "soft_parse_pct < 95 时 skill 应判定 warning 并提示检查绑定变量/CURSOR_SHARING；soft_parse_pct >= 95 时该分支由真实低软解析率环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以强制低软解析率；读取实际 soft_parse_pct 验证，若 <95 校验 warning 分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-031",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "实例效率命中率",
+    "metric": "Soft Parse Ratio",
+    "target_state": "boundary",
+    "judgment_rule": "Soft Parse Ratio 恰为 95% 时，skill 应给出明确判定，不出现判断歧义",
+    "user_input": "软解析率刚好95%，帮我判断一下。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "boundary",
+      "description": "Soft Parse Ratio = 95% 时给出明确判定，不出现歧义"
+    },
+    "assertions": [
+      {
+        "name": "Soft Parse Ratio 边界判断",
+        "ground_truth_sql": "SELECT ROUND((1 - (SUM(CASE WHEN e.stat_name='parse count (hard)' THEN e.value-b.value ELSE 0 END) / GREATEST(SUM(CASE WHEN e.stat_name='parse count (total)' THEN e.value-b.value ELSE 0 END),1))) * 100, 2) AS soft_parse_pct FROM dba_hist_sysstat e JOIN dba_hist_sysstat b ON e.stat_name=b.stat_name AND b.snap_id=(SELECT MIN(snap_id) FROM dba_hist_snapshot) WHERE e.snap_id=(SELECT MAX(snap_id) FROM dba_hist_snapshot) AND e.stat_name IN ('parse count (hard)','parse count (total)')",
+        "logic": "soft_parse_pct = 95 时 skill 应给出明确判定（normal 或 warning 二选一），不得同时输出两种判断或含糊其辞"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境难以精确构造软解析率=95%；读取实际 soft_parse_pct，若恰为 95 校验边界分支，否则标注待真实环境覆盖"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-032",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "连接与错误处理",
+    "metric": "实例连接",
+    "target_state": "error",
+    "judgment_rule": "实例连接失败时，skill 应返回明确连接错误信息，不输出数据库原始异常堆栈",
+    "user_input": "帮我分析一下这个连不上的实例的性能。",
+    "params": {
+      "instance_host": "<invalid_or_unreachable_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "error",
+      "description": "返回明确连接错误信息（如连接超时/无法解析），不输出数据库原始异常堆栈"
+    },
+    "assertions": [
+      {
+        "name": "连接失败处理",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "当 instance_host 无法连接时，skill 应返回明确连接错误信息而非数据库原始异常堆栈；若连接成功则该分支由真实不可达环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "执行 agent 传入不可达的连接串（如错误端口/主机名）触发连接失败，验证错误信息是否友好、是否泄露原始堆栈"
+  },
+  {
+    "skill": "db-oracle-diagnose-awr",
+    "skill_version": "v1.0.0",
+    "case_id": "awr-033",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "连接与错误处理",
+    "metric": "权限边界",
+    "target_state": "error",
+    "judgment_rule": "账号缺少 DBA_HIST_* 视图访问权限时，skill 应标记该维度异常并继续其余查询，或返回明确权限错误",
+    "user_input": "我用一个只读账号分析AWR，但好像没权限看历史视图。",
+    "params": {
+      "instance_host": "<oracle_conn>"
+    },
+    "expected_output": {
+      "target_judgment": "error",
+      "description": "对无权限的视图标记异常或返回明确权限错误，不输出伪造数据"
+    },
+    "assertions": [
+      {
+        "name": "权限不足处理",
+        "ground_truth_sql": "SELECT COUNT(*) AS tbl_cnt FROM all_tables WHERE table_name='DBA_HIST_SNAPSHOT'",
+        "logic": "当账号无 DBA_HIST_* 访问权限时，skill 应标记该维度异常或返回明确权限错误，不得输出伪造数据；有权限时该分支由真实受限账号环境覆盖"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若使用高权限账号则无法强制权限不足；用受限账号验证权限边界分支，否则标注待真实受限环境覆盖"
+  }
+]

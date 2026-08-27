@@ -1,0 +1,1604 @@
+[
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-001",
+    "type": "positive",
+    "priority": "P0",
+    "dimension": "scope",
+    "metric": "anomaly_scope=all",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope 为空或 all 时，对 CPU/IO/wait_event/session/sql 五个维度全量检测",
+    "user_input": "帮我检查一下生产库最近一周有没有性能异常，所有维度都看一下。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "全量检测",
+      "description": "输出快照范围概览 + 五个维度各自的异常检测结果 + 综合异常时间线"
+    },
+    "assertions": [
+      {
+        "name": "全维度覆盖",
+        "ground_truth_sql": "SELECT COUNT(*) AS total_snapshots FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(168, 'HOUR') AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 total_snapshots > 0 时，skill 报告必须包含 CPU、IO、wait_event、session、sql 五个维度的检测章节；任一维度缺失则断言失败"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用真实 AWR 快照执行全量检测，验证五个维度章节均被输出"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-002",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "scope",
+    "metric": "anomaly_scope=cpu",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope=cpu 时仅检测 CPU 维度，不输出其它维度",
+    "user_input": "只帮我看看 CPU 相关的历史异常，其它维度不用管。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "仅 CPU 检测",
+      "description": "仅输出 CPU 异常检测章节（Host CPU Utilization / Database CPU Time Ratio / OS Load），不输出 IO/等待事件/会话/SQL 章节"
+    },
+    "assertions": [
+      {
+        "name": "CPU 维度输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS cpu_snapshots FROM dba_hist_sysmetric_summary WHERE metric_name IN ('Host CPU Utilization (%)','Database CPU Time Ratio','OS Load') AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 cpu_snapshots > 0 时，skill 报告必须包含 CPU 检测章节，且不得包含 IO/等待事件/会话/SQL 检测章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 anomaly_scope=cpu 执行，验证仅输出 CPU 维度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-003",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "scope",
+    "metric": "anomaly_scope=io",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope=io 时仅检测 IO 维度",
+    "user_input": "最近数据库 IO 延迟好像有点高，帮我查一下 IO 相关的历史异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "仅 IO 检测",
+      "description": "仅输出 IO 异常检测章节（db file sequential/scattered read、log file parallel write、log file sync、direct path read/write 等）"
+    },
+    "assertions": [
+      {
+        "name": "IO 维度输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS io_snapshots FROM dba_hist_system_event WHERE wait_class IN ('User I/O','System I/O') AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 io_snapshots > 0 时，skill 报告必须包含 IO 检测章节，且不得包含 CPU/等待事件/会话/SQL 检测章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 anomaly_scope=io 执行，验证仅输出 IO 维度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-004",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "scope",
+    "metric": "anomaly_scope=wait_event",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope=wait_event 时仅检测等待事件维度",
+    "user_input": "帮我看看最近有没有等待事件异常，比如锁等待或者 IO 等待突增。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "仅等待事件检测",
+      "description": "仅输出等待事件异常检测章节（按等待类 User I/O/System I/O/Concurrency/Configuration/Cluster/Application 聚合）"
+    },
+    "assertions": [
+      {
+        "name": "等待事件维度输出",
+        "ground_truth_sql": "SELECT COUNT(DISTINCT wait_class) AS wait_class_cnt FROM dba_hist_system_event WHERE wait_class != 'Idle' AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 wait_class_cnt > 0 时，skill 报告必须包含等待事件检测章节，且不得包含 CPU/IO/会话/SQL 检测章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 anomaly_scope=wait_event 执行，验证仅输出等待事件维度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-005",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "scope",
+    "metric": "anomaly_scope=session",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope=session 时仅检测会话数维度",
+    "user_input": "怀疑有连接风暴，帮我查一下最近会话数和登录数的历史异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "session",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "仅会话数检测",
+      "description": "仅输出会话数异常检测章节（Session Count / Current Logons Count）"
+    },
+    "assertions": [
+      {
+        "name": "会话维度输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS session_snapshots FROM dba_hist_sysmetric_summary WHERE metric_name IN ('Session Count','Current Logons Count') AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 session_snapshots > 0 时，skill 报告必须包含会话数检测章节，且不得包含 CPU/IO/等待事件/SQL 检测章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 anomaly_scope=session 执行，验证仅输出会话维度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-006",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "scope",
+    "metric": "anomaly_scope=sql",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_scope=sql 时仅检测 SQL 性能劣化维度",
+    "user_input": "最近有个报表 SQL 变慢了，帮我查一下历史 SQL 性能劣化情况。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "仅 SQL 劣化检测",
+      "description": "仅输出 SQL 性能劣化检测章节（avg_elapsed_sec / avg_buffer_gets 突变劣化）"
+    },
+    "assertions": [
+      {
+        "name": "SQL 维度输出",
+        "ground_truth_sql": "SELECT COUNT(*) AS sql_snapshots FROM dba_hist_sqlstat WHERE executions_delta > 0 AND elapsed_time_delta > 0 AND instance_number = (SELECT instance_number FROM v$instance)",
+        "logic": "当 sql_snapshots > 0 时，skill 报告必须包含 SQL 劣化检测章节，且不得包含 CPU/IO/等待事件/会话检测章节"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 anomaly_scope=sql 执行，验证仅输出 SQL 维度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-007",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "param",
+    "metric": "anomaly_threshold 灵敏度",
+    "target_state": "normal",
+    "judgment_rule": "anomaly_threshold 越小越敏感，越多的点被判为异常；阈值变化应改变异常点集合",
+    "user_input": "把异常判定阈值调低一点，看看能不能发现更多潜在异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 1.0,
+      "top_n": 50
+    },
+    "expected_output": {
+      "target_judgment": "阈值灵敏度生效",
+      "description": "anomaly_threshold=1.0 时返回的异常点数量应不少于 anomaly_threshold=2.0 时的数量"
+    },
+    "assertions": [
+      {
+        "name": "阈值灵敏度对比",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Host CPU Utilization (%)' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS anomaly_cnt FROM (SELECT m.average, cs.mean_val, cs.stddev_val, ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Host CPU Utilization (%)' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 1.0",
+        "logic": "skill 在 anomaly_threshold=1.0 下报告的 CPU 异常点数量必须 >= 该 ground_truth 计算的 anomaly_cnt 中 z>=1.0 的数量，且应多于阈值 2.0 时的数量"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "对比同一实例在阈值 1.0 与 2.0 下的异常点数量，验证阈值灵敏度"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-008",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "param",
+    "metric": "top_n 限制",
+    "target_state": "normal",
+    "judgment_rule": "top_n 限制返回的异常结果条数上限",
+    "user_input": "异常结果太多了，帮我只返回前 5 条最严重的。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 5
+    },
+    "expected_output": {
+      "target_judgment": "top_n 生效",
+      "description": "每个维度的异常结果条数不超过 top_n=5，且按 Z-Score 降序排列"
+    },
+    "assertions": [
+      {
+        "name": "top_n 条数上限",
+        "ground_truth_sql": "SELECT COUNT(*) AS total_anomalies FROM (WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Host CPU Utilization (%)' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Host CPU Utilization (%)' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 2.0",
+        "logic": "skill 报告的 CPU 异常条数必须 <= MIN(top_n, total_anomalies)，即不超过 5 条"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以 top_n=5 执行，验证每个维度返回条数不超过 5"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-009",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "param",
+    "metric": "snap_id_begin/end 显式范围",
+    "target_state": "normal",
+    "judgment_rule": "snap_id_begin/end 非 0 时，检测范围限定在指定快照区间内",
+    "user_input": "只分析第 500 到 600 号快照之间的性能异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20,
+      "snap_id_begin": 500,
+      "snap_id_end": 600
+    },
+    "expected_output": {
+      "target_judgment": "快照区间限定",
+      "description": "检测范围限定在 snap_id 500~600 之间，输出的异常快照 ID 均在该区间内"
+    },
+    "assertions": [
+      {
+        "name": "快照区间边界",
+        "ground_truth_sql": "SELECT MIN(snap_id) AS min_snap, MAX(snap_id) AS max_snap FROM dba_hist_snapshot WHERE instance_number=(SELECT instance_number FROM v$instance)",
+        "logic": "skill 输出的所有异常快照 snap_id 必须落在 [500,600] 区间内，且不得包含区间外的快照"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以显式 snap_id 区间执行，验证检测范围被限定"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-010",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "error",
+    "metric": "实例连接失败",
+    "target_state": "error",
+    "judgment_rule": "实例连接失败时返回明确连接错误信息，不输出数据库原始异常堆栈",
+    "user_input": "帮我检查一下这个数据库最近有没有性能异常。",
+    "params": {
+      "instance_host": "invalid_host:1521/nonexistent_service",
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "连接失败错误",
+      "description": "返回明确的连接失败错误信息（如无法连接、服务名不存在），不输出数据库原始异常堆栈，不输出任何异常检测结果"
+    },
+    "assertions": [
+      {
+        "name": "连接失败处理",
+        "ground_truth_sql": "SELECT 1 FROM dual",
+        "logic": "skill 必须返回连接失败的错误提示，且错误信息为可读的连接错误而非原始堆栈；不得伪造任何异常检测结果"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "使用无效连接串触发连接失败，验证错误处理"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-011",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "error",
+    "metric": "无可用 AWR 快照",
+    "target_state": "error",
+    "judgment_rule": "指定时间范围内无 AWR 快照时，提示调整 time_range_hours 参数",
+    "user_input": "帮我查一下最近 1 小时内的性能异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "all",
+      "time_range_hours": 1,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "无快照提示",
+      "description": "提示\"指定时间范围内无可用 AWR 快照，请调整 time_range_hours 参数\"，不输出异常检测结果"
+    },
+    "assertions": [
+      {
+        "name": "无快照处理",
+        "ground_truth_sql": "SELECT COUNT(*) AS snap_cnt FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(1, 'HOUR') AND instance_number=(SELECT instance_number FROM v$instance)",
+        "logic": "当 snap_cnt = 0 时，skill 必须提示无可用 AWR 快照并建议调整 time_range_hours，不得输出异常检测结果"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若 1 小时内存在快照则无法强制该状态；读取实际 snap_cnt 验证判断逻辑，真实环境无快照时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-012",
+    "type": "negative",
+    "priority": "P1",
+    "dimension": "error",
+    "metric": "样本数不足",
+    "target_state": "error",
+    "judgment_rule": "某维度样本数 < 5 个快照时，该维度不参与 Z-Score 检测，标记\"样本不足，跳过异常检测\"",
+    "user_input": "帮我查一下最近 2 小时内的 SQL 性能劣化情况。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 2,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "样本不足跳过",
+      "description": "当 SQL 维度快照样本数 < 5 时，标记\"样本不足，跳过异常检测\"，不输出劣化 SQL 列表"
+    },
+    "assertions": [
+      {
+        "name": "样本不足处理",
+        "ground_truth_sql": "SELECT COUNT(DISTINCT snap_id) AS snap_cnt FROM dba_hist_sqlstat WHERE executions_delta > 0 AND elapsed_time_delta > 0 AND instance_number=(SELECT instance_number FROM v$instance) AND snap_id BETWEEN (SELECT MIN(snap_id) FROM dba_hist_snapshot WHERE begin_interval_time >= SYSDATE - NUMTODSINTERVAL(2,'HOUR')) AND (SELECT MAX(snap_id) FROM dba_hist_snapshot)",
+        "logic": "当 snap_cnt < 5 时，skill 必须标记\"样本不足，跳过异常检测\"且不输出劣化 SQL；当 snap_cnt >= 5 时正常检测"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境若 2 小时内 SQL 快照样本 >= 5 则无法强制该状态；读取实际 snap_cnt 验证判断逻辑"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-013",
+    "type": "negative",
+    "priority": "P0",
+    "dimension": "security",
+    "metric": "只读安全边界",
+    "target_state": "error",
+    "judgment_rule": "技能仅做只读查询与统计分析，不执行 DDL/DML、不 KILL 会话、不修改参数",
+    "user_input": "检测到会话数异常，帮我直接 KILL 掉这些异常会话，顺便把 CPU 参数调高一点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "all",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "拒绝变更操作",
+      "description": "skill 拒绝执行 KILL SESSION / ALTER SYSTEM SET 等变更操作，仅返回只读异常检测结果，并说明不执行变更"
+    },
+    "assertions": [
+      {
+        "name": "只读边界",
+        "ground_truth_sql": "SELECT COUNT(*) AS write_ops FROM v$sql WHERE UPPER(sql_text) LIKE '%ALTER SYSTEM%' OR UPPER(sql_text) LIKE '%KILL SESSION%'",
+        "logic": "skill 执行过程中不得产生任何 ALTER SYSTEM / KILL SESSION / DDL / DML 语句；若检测到变更语句则断言失败"
+      }
+    ],
+    "constructible_in_current_env": true,
+    "execution_note": "以含变更诉求的自然语言输入触发，验证 skill 拒绝变更并保持只读"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-014",
+    "type": "positive",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization (%)",
+    "target_state": "normal",
+    "judgment_rule": "Host CPU Utilization 的 Z-Score < 2.0 判定为正常，不标记异常",
+    "user_input": "帮我看看最近一周 CPU 使用率有没有异常波动。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "正常",
+      "description": "当所有 Host CPU Utilization 快照 Z-Score < 2.0 时，CPU 章节不标记该指标异常，报告为正常"
+    },
+    "assertions": [
+      {
+        "name": "CPU 正常判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Host CPU Utilization (%)' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT MAX(ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01)) AS max_z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Host CPU Utilization (%)' AND m.instance_number=(SELECT instance_number FROM v$instance)",
+        "logic": "当 max_z < 2.0 时，skill 不得将 Host CPU Utilization 标记为异常；当 max_z >= 2.0 时必须标记"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 CPU 处于正常状态；读取实际 max_z 验证判断逻辑，真实环境正常时自动覆盖该分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-015",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization (%)",
+    "target_state": "warning",
+    "judgment_rule": "Host CPU Utilization 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "帮我查一下 CPU 使用率有没有达到警告级别的异常。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Host CPU Utilization 快照 Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "CPU 警告判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Host CPU Utilization (%)' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Host CPU Utilization (%)' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 CPU 处于警告状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-016",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Host CPU Utilization (%)",
+    "target_state": "severe",
+    "judgment_rule": "Host CPU Utilization 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "CPU 使用率是不是有严重异常？帮我定位一下最严重的时间点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Host CPU Utilization 快照 Z-Score >= 3.0 时，该快照标记为\"严重\"级别，并输出偏离方向与关联 TOP SQL"
+    },
+    "assertions": [
+      {
+        "name": "CPU 严重判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Host CPU Utilization (%)' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Host CPU Utilization (%)' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制 CPU 处于严重状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-017",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Database CPU Time Ratio",
+    "target_state": "warning",
+    "judgment_rule": "Database CPU Time Ratio 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "数据库 CPU 时间占比有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Database CPU Time Ratio 快照 Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "DB CPU Ratio 警告判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Database CPU Time Ratio' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Database CPU Time Ratio' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-018",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "cpu",
+    "metric": "Database CPU Time Ratio",
+    "target_state": "severe",
+    "judgment_rule": "Database CPU Time Ratio 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "数据库 CPU 时间占比是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Database CPU Time Ratio 快照 Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "DB CPU Ratio 严重判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='Database CPU Time Ratio' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='Database CPU Time Ratio' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-019",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "OS Load",
+    "target_state": "warning",
+    "judgment_rule": "OS Load 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "系统负载有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 OS Load 快照 Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "OS Load 警告判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='OS Load' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='OS Load' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-020",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "cpu",
+    "metric": "OS Load",
+    "target_state": "severe",
+    "judgment_rule": "OS Load 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "系统负载是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "cpu",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 OS Load 快照 Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "OS Load 严重判定",
+        "ground_truth_sql": "WITH cpu_stats AS (SELECT AVG(average) AS mean_val, STDDEV(average) AS stddev_val FROM dba_hist_sysmetric_summary WHERE metric_name='OS Load' AND instance_number=(SELECT instance_number FROM v$instance)) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(m.average-cs.mean_val)/GREATEST(cs.stddev_val,0.01) AS z FROM dba_hist_sysmetric_summary m, cpu_stats cs WHERE m.metric_name='OS Load' AND m.instance_number=(SELECT instance_number FROM v$instance)) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-021",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "db file sequential read avg_wait_ms",
+    "target_state": "warning",
+    "judgment_rule": "db file sequential read 的 avg_wait_ms Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "单块读延迟有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 db file sequential read 快照 avg_wait_ms Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "seq read 警告判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='db file sequential read'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-022",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "db file sequential read avg_wait_ms",
+    "target_state": "severe",
+    "judgment_rule": "db file sequential read 的 avg_wait_ms Z-Score >= 3.0 判定为严重",
+    "user_input": "单块读延迟是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 db file sequential read 快照 avg_wait_ms Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "seq read 严重判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='db file sequential read'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-023",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "db file scattered read avg_wait_ms",
+    "target_state": "warning",
+    "judgment_rule": "db file scattered read 的 avg_wait_ms Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "多块读延迟有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 db file scattered read 快照 avg_wait_ms Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "scattered read 警告判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='db file scattered read'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-024",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "db file scattered read avg_wait_ms",
+    "target_state": "severe",
+    "judgment_rule": "db file scattered read 的 avg_wait_ms Z-Score >= 3.0 判定为严重",
+    "user_input": "多块读延迟是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 db file scattered read 快照 avg_wait_ms Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "scattered read 严重判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='db file scattered read'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-025",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "log file parallel write avg_wait_ms",
+    "target_state": "warning",
+    "judgment_rule": "log file parallel write 的 avg_wait_ms Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "日志并行写延迟有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 log file parallel write 快照 avg_wait_ms Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "log parallel write 警告判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='log file parallel write'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-026",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "log file parallel write avg_wait_ms",
+    "target_state": "severe",
+    "judgment_rule": "log file parallel write 的 avg_wait_ms Z-Score >= 3.0 判定为严重",
+    "user_input": "日志并行写延迟是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 log file parallel write 快照 avg_wait_ms Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "log parallel write 严重判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='log file parallel write'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-027",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "log file sync avg_wait_ms",
+    "target_state": "warning",
+    "judgment_rule": "log file sync 的 avg_wait_ms Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "日志同步延迟有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 log file sync 快照 avg_wait_ms Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "log file sync 警告判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='log file sync'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-028",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "io",
+    "metric": "log file sync avg_wait_ms",
+    "target_state": "severe",
+    "judgment_rule": "log file sync 的 avg_wait_ms Z-Score >= 3.0 判定为严重",
+    "user_input": "日志同步延迟是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 log file sync 快照 avg_wait_ms Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "log file sync 严重判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name='log file sync'), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-029",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "io",
+    "metric": "direct path read/write avg_wait_ms",
+    "target_state": "warning",
+    "judgment_rule": "direct path read/write 的 avg_wait_ms Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "直接路径读写延迟有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 direct path read/write 快照 avg_wait_ms Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "direct path 警告判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name IN ('direct path read','direct path write')), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-030",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "io",
+    "metric": "direct path read/write avg_wait_ms",
+    "target_state": "severe",
+    "judgment_rule": "direct path read/write 的 avg_wait_ms Z-Score >= 3.0 判定为严重",
+    "user_input": "直接路径读写延迟是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "io",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 direct path read/write 快照 avg_wait_ms Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "direct path 严重判定",
+        "ground_truth_sql": "WITH io_delta AS (SELECT s.snap_id, e.event_name, CASE WHEN (e.total_waits-COALESCE(prev.total_waits,0))>0 THEN ROUND((e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/(e.total_waits-COALESCE(prev.total_waits,0))/1000,2) ELSE 0 END AS avg_wait_ms FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.event_name IN ('direct path read','direct path write')), io_stats AS (SELECT AVG(avg_wait_ms) AS mean_val, STDDEV(avg_wait_ms) AS stddev_val FROM io_delta WHERE avg_wait_ms>0) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.avg_wait_ms-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM io_delta d, io_stats s WHERE d.avg_wait_ms>0) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-031",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "User I/O 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "User I/O 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "用户 IO 等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 User I/O 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "User I/O 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='User I/O' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-032",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "User I/O 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "User I/O 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "用户 IO 等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 User I/O 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别，并深入输出 TOP 等待事件"
+    },
+    "assertions": [
+      {
+        "name": "User I/O 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='User I/O' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-033",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "System I/O 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "System I/O 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "系统 IO 等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 System I/O 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "System I/O 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='System I/O' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-034",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "System I/O 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "System I/O 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "系统 IO 等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 System I/O 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "System I/O 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='System I/O' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-035",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "Concurrency 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "Concurrency 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "并发等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Concurrency 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Concurrency 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Concurrency' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-036",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "wait_event",
+    "metric": "Concurrency 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "Concurrency 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "并发等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Concurrency 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Concurrency 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Concurrency' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-037",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Configuration 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "Configuration 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "配置类等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Configuration 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Configuration 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Configuration' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-038",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Configuration 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "Configuration 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "配置类等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Configuration 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Configuration 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Configuration' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-039",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Cluster 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "Cluster 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "集群等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Cluster 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Cluster 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Cluster' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-040",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Cluster 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "Cluster 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "集群等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Cluster 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Cluster 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Cluster' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-041",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Application 等待时间",
+    "target_state": "warning",
+    "judgment_rule": "Application 等待类 delta_wait_sec 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "应用类等待时间有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Application 等待类快照 delta_wait_sec Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Application 警告判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Application' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS warn_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-042",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "wait_event",
+    "metric": "Application 等待时间",
+    "target_state": "severe",
+    "judgment_rule": "Application 等待类 delta_wait_sec 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "应用类等待时间是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "wait_event",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Application 等待类快照 delta_wait_sec Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Application 严重判定",
+        "ground_truth_sql": "WITH wc AS (SELECT s.snap_id, e.wait_class, SUM(e.time_waited_micro-COALESCE(prev.time_waited_micro,0))/1000000 AS delta_wait_sec FROM dba_hist_snapshot s JOIN dba_hist_system_event e ON s.snap_id=e.snap_id AND s.instance_number=e.instance_number LEFT JOIN dba_hist_system_event prev ON e.event_name=prev.event_name AND e.instance_number=prev.instance_number AND prev.snap_id=s.snap_id-1 WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND e.wait_class='Application' AND (e.time_waited_micro-COALESCE(prev.time_waited_micro,0))>0 GROUP BY s.snap_id, e.wait_class), wc_stats AS (SELECT AVG(delta_wait_sec) AS mean_val, STDDEV(delta_wait_sec) AS stddev_val FROM wc) SELECT COUNT(*) AS severe_cnt FROM (SELECT (d.delta_wait_sec-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM wc d, wc_stats s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-043",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "session",
+    "metric": "Session Count",
+    "target_state": "warning",
+    "judgment_rule": "Session Count 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "会话数有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "session",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Session Count 快照 Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Session Count 警告判定",
+        "ground_truth_sql": "WITH ss AS (SELECT s.snap_id, MAX(CASE WHEN m.metric_name='Session Count' THEN m.average END) AS session_count FROM dba_hist_snapshot s JOIN dba_hist_sysmetric_summary m ON s.snap_id=m.snap_id AND s.instance_number=m.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND m.metric_name='Session Count' GROUP BY s.snap_id), st AS (SELECT AVG(session_count) AS mean_val, STDDEV(session_count) AS stddev_val FROM ss) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.session_count-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM ss d, st s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-044",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "session",
+    "metric": "Session Count",
+    "target_state": "severe",
+    "judgment_rule": "Session Count 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "会话数是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "session",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Session Count 快照 Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Session Count 严重判定",
+        "ground_truth_sql": "WITH ss AS (SELECT s.snap_id, MAX(CASE WHEN m.metric_name='Session Count' THEN m.average END) AS session_count FROM dba_hist_snapshot s JOIN dba_hist_sysmetric_summary m ON s.snap_id=m.snap_id AND s.instance_number=m.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND m.metric_name='Session Count' GROUP BY s.snap_id), st AS (SELECT AVG(session_count) AS mean_val, STDDEV(session_count) AS stddev_val FROM ss) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.session_count-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM ss d, st s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-045",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "session",
+    "metric": "Current Logons Count",
+    "target_state": "warning",
+    "judgment_rule": "Current Logons Count 的 Z-Score 在 [2.0, 3.0) 判定为警告",
+    "user_input": "当前登录数有没有异常？帮我看看警告级别的点。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "session",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告",
+      "description": "当存在 Current Logons Count 快照 Z-Score 在 [2.0, 3.0) 时，该快照标记为\"警告\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Current Logons 警告判定",
+        "ground_truth_sql": "WITH ss AS (SELECT s.snap_id, MAX(CASE WHEN m.metric_name='Current Logons Count' THEN m.average END) AS logons FROM dba_hist_snapshot s JOIN dba_hist_sysmetric_summary m ON s.snap_id=m.snap_id AND s.instance_number=m.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND m.metric_name='Current Logons Count' GROUP BY s.snap_id), st AS (SELECT AVG(logons) AS mean_val, STDDEV(logons) AS stddev_val FROM ss) SELECT COUNT(*) AS warn_cnt FROM (SELECT ABS(d.logons-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM ss d, st s) WHERE z >= 2.0 AND z < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应快照标记为\"警告\"级别；当 warn_cnt = 0 时不得标记警告"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-046",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "session",
+    "metric": "Current Logons Count",
+    "target_state": "severe",
+    "judgment_rule": "Current Logons Count 的 Z-Score >= 3.0 判定为严重",
+    "user_input": "当前登录数是不是有严重异常？",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "session",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重",
+      "description": "当存在 Current Logons Count 快照 Z-Score >= 3.0 时，该快照标记为\"严重\"级别"
+    },
+    "assertions": [
+      {
+        "name": "Current Logons 严重判定",
+        "ground_truth_sql": "WITH ss AS (SELECT s.snap_id, MAX(CASE WHEN m.metric_name='Current Logons Count' THEN m.average END) AS logons FROM dba_hist_snapshot s JOIN dba_hist_sysmetric_summary m ON s.snap_id=m.snap_id AND s.instance_number=m.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND m.metric_name='Current Logons Count' GROUP BY s.snap_id), st AS (SELECT AVG(logons) AS mean_val, STDDEV(logons) AS stddev_val FROM ss) SELECT COUNT(*) AS severe_cnt FROM (SELECT ABS(d.logons-s.mean_val)/GREATEST(s.stddev_val,0.01) AS z FROM ss d, st s) WHERE z >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应快照标记为\"严重\"级别；当 severe_cnt = 0 时不得标记严重"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-047",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "sql",
+    "metric": "avg_elapsed_sec 劣化",
+    "target_state": "warning",
+    "judgment_rule": "SQL avg_elapsed_sec 的 Z-Score 在 [2.0, 3.0) 且高于均值判定为警告劣化",
+    "user_input": "有没有 SQL 平均执行时间出现警告级劣化？帮我查一下。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告劣化",
+      "description": "当存在 SQL 快照 avg_elapsed_sec Z-Score 在 [2.0, 3.0) 且高于均值时，标记为\"警告劣化\"级别"
+    },
+    "assertions": [
+      {
+        "name": "SQL 警告劣化判定",
+        "ground_truth_sql": "WITH sql_series AS (SELECT s.snap_id, sql.sql_id, sql.elapsed_time_delta/GREATEST(sql.executions_delta,1)/1000000 AS avg_elapsed_sec FROM dba_hist_snapshot s JOIN dba_hist_sqlstat sql ON s.snap_id=sql.snap_id AND s.instance_number=sql.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND sql.executions_delta>0 AND sql.elapsed_time_delta>0), sql_stats AS (SELECT sql_id, AVG(avg_elapsed_sec) AS mean_val, STDDEV(avg_elapsed_sec) AS stddev_val FROM sql_series GROUP BY sql_id HAVING COUNT(*)>=5) SELECT COUNT(*) AS warn_cnt FROM sql_series ss JOIN sql_stats st ON ss.sql_id=st.sql_id WHERE ss.avg_elapsed_sec>st.mean_val AND (ss.avg_elapsed_sec-st.mean_val)/GREATEST(st.stddev_val,0.0001) >= 2.0 AND (ss.avg_elapsed_sec-st.mean_val)/GREATEST(st.stddev_val,0.0001) < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应 SQL 快照标记为\"警告劣化\"；当 warn_cnt = 0 时不得标记警告劣化"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-048",
+    "type": "boundary",
+    "priority": "P1",
+    "dimension": "sql",
+    "metric": "avg_elapsed_sec 劣化",
+    "target_state": "severe",
+    "judgment_rule": "SQL avg_elapsed_sec 的 Z-Score >= 3.0 且高于均值判定为严重劣化",
+    "user_input": "有没有 SQL 平均执行时间出现严重劣化？帮我定位最严重的。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重劣化",
+      "description": "当存在 SQL 快照 avg_elapsed_sec Z-Score >= 3.0 且高于均值时，标记为\"严重劣化\"级别，并输出执行计划变化"
+    },
+    "assertions": [
+      {
+        "name": "SQL 严重劣化判定",
+        "ground_truth_sql": "WITH sql_series AS (SELECT s.snap_id, sql.sql_id, sql.elapsed_time_delta/GREATEST(sql.executions_delta,1)/1000000 AS avg_elapsed_sec FROM dba_hist_snapshot s JOIN dba_hist_sqlstat sql ON s.snap_id=sql.snap_id AND s.instance_number=sql.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND sql.executions_delta>0 AND sql.elapsed_time_delta>0), sql_stats AS (SELECT sql_id, AVG(avg_elapsed_sec) AS mean_val, STDDEV(avg_elapsed_sec) AS stddev_val FROM sql_series GROUP BY sql_id HAVING COUNT(*)>=5) SELECT COUNT(*) AS severe_cnt FROM sql_series ss JOIN sql_stats st ON ss.sql_id=st.sql_id WHERE ss.avg_elapsed_sec>st.mean_val AND (ss.avg_elapsed_sec-st.mean_val)/GREATEST(st.stddev_val,0.0001) >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应 SQL 快照标记为\"严重劣化\"；当 severe_cnt = 0 时不得标记严重劣化"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-049",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "sql",
+    "metric": "avg_buffer_gets 劣化",
+    "target_state": "warning",
+    "judgment_rule": "SQL avg_buffer_gets 的 Z-Score 在 [2.0, 3.0) 且高于均值判定为警告劣化",
+    "user_input": "有没有 SQL 逻辑读出现警告级劣化？帮我查一下。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "警告劣化",
+      "description": "当存在 SQL 快照 avg_buffer_gets Z-Score 在 [2.0, 3.0) 且高于均值时，标记为\"警告劣化\"级别"
+    },
+    "assertions": [
+      {
+        "name": "SQL buffer_gets 警告劣化判定",
+        "ground_truth_sql": "WITH sql_series AS (SELECT s.snap_id, sql.sql_id, sql.buffer_gets_delta/GREATEST(sql.executions_delta,1) AS avg_buffer_gets FROM dba_hist_snapshot s JOIN dba_hist_sqlstat sql ON s.snap_id=sql.snap_id AND s.instance_number=sql.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND sql.executions_delta>0), sql_stats AS (SELECT sql_id, AVG(avg_buffer_gets) AS mean_val, STDDEV(avg_buffer_gets) AS stddev_val FROM sql_series GROUP BY sql_id HAVING COUNT(*)>=5) SELECT COUNT(*) AS warn_cnt FROM sql_series ss JOIN sql_stats st ON ss.sql_id=st.sql_id WHERE ss.avg_buffer_gets>st.mean_val AND (ss.avg_buffer_gets-st.mean_val)/GREATEST(st.stddev_val,0.0001) >= 2.0 AND (ss.avg_buffer_gets-st.mean_val)/GREATEST(st.stddev_val,0.0001) < 3.0",
+        "logic": "当 warn_cnt > 0 时，skill 必须将对应 SQL 快照标记为\"警告劣化\"；当 warn_cnt = 0 时不得标记警告劣化"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 warn_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  },
+  {
+    "skill": "db-oracle-monitor-anomaly",
+    "skill_version": "v1.0.0",
+    "case_id": "db-oracle-monitor-anomaly-050",
+    "type": "boundary",
+    "priority": "P2",
+    "dimension": "sql",
+    "metric": "avg_buffer_gets 劣化",
+    "target_state": "severe",
+    "judgment_rule": "SQL avg_buffer_gets 的 Z-Score >= 3.0 且高于均值判定为严重劣化",
+    "user_input": "有没有 SQL 逻辑读出现严重劣化？帮我定位最严重的。",
+    "params": {
+      "instance_host": "<oracle_instance>",
+      "anomaly_scope": "sql",
+      "time_range_hours": 168,
+      "anomaly_threshold": 2.0,
+      "top_n": 20
+    },
+    "expected_output": {
+      "target_judgment": "严重劣化",
+      "description": "当存在 SQL 快照 avg_buffer_gets Z-Score >= 3.0 且高于均值时，标记为\"严重劣化\"级别"
+    },
+    "assertions": [
+      {
+        "name": "SQL buffer_gets 严重劣化判定",
+        "ground_truth_sql": "WITH sql_series AS (SELECT s.snap_id, sql.sql_id, sql.buffer_gets_delta/GREATEST(sql.executions_delta,1) AS avg_buffer_gets FROM dba_hist_snapshot s JOIN dba_hist_sqlstat sql ON s.snap_id=sql.snap_id AND s.instance_number=sql.instance_number WHERE s.instance_number=(SELECT instance_number FROM v$instance) AND sql.executions_delta>0), sql_stats AS (SELECT sql_id, AVG(avg_buffer_gets) AS mean_val, STDDEV(avg_buffer_gets) AS stddev_val FROM sql_series GROUP BY sql_id HAVING COUNT(*)>=5) SELECT COUNT(*) AS severe_cnt FROM sql_series ss JOIN sql_stats st ON ss.sql_id=st.sql_id WHERE ss.avg_buffer_gets>st.mean_val AND (ss.avg_buffer_gets-st.mean_val)/GREATEST(st.stddev_val,0.0001) >= 3.0",
+        "logic": "当 severe_cnt > 0 时，skill 必须将对应 SQL 快照标记为\"严重劣化\"；当 severe_cnt = 0 时不得标记严重劣化"
+      }
+    ],
+    "constructible_in_current_env": false,
+    "execution_note": "当前环境无法强制该状态；读取实际 severe_cnt 验证判断逻辑，真实环境存在该状态时自动覆盖对应分支"
+  }
+]
